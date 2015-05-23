@@ -3,6 +3,7 @@ TARGET := kernel
 SRCDIR := src
 OBJDIR := obj
 BINDIR := bin
+IMGDIR := img
 TARGETSPEC := target
 
 # Program config.
@@ -41,9 +42,14 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.S
 	@mkdir -p $(@D)
 	$(AS) $(ASFLAGS) -o $@ $^
 
-# Clean target.
+# Misc target.
+image: 
+	cp $(BINDIR)/$(TARGET) $(IMGDIR)/boot/
+	grub-mkrescue -o $(BINDIR)/$(TARGET).iso $(IMGDIR)
+
 clean: 
 	rm -Rf $(BINDIR) $(OBJDIR)
+	rm -f $(IMGDIR)/boot/$(TARGET)
 
 # Debug target.
 print-%:
