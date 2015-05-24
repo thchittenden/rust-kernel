@@ -3,11 +3,34 @@
 #![feature(no_std,core,lang_items)]
 #![no_std]
 #![no_builtins]
-extern crate core;
 
-#[lang = "stack_exhausted"] extern fn stack_exhausted() {}
-#[lang = "eh_personality"] extern fn eh_personality() {}
-#[lang = "panic_fmt"] fn panic_fmt() -> ! { loop {} }
+#[macro_use] extern crate core;
+#[macro_use] extern crate macros;
+extern crate console;
+
+use core::fmt::{Arguments, Write};
+use console::{Console, Color};
+
+// This is our panic function. It must be declared "extern" or arguments
+// will be mangled on the stack.
+#[allow(unused_must_use)]
+#[lang = "panic_fmt"] 
+#[no_mangle]
+pub extern fn rust_begin_unwind(args: Arguments, file: &str, line: usize) -> ! { 
+    
+    // Construct a new console and clear it. This is important in case our 
+    // console was corrupted.
+    let mut con = Console::new();
+    con.clear();
+    con.set_color(Color::LightRed, Color::Black);
+
+    // Print the panic messages.
+    con.write_fmt(format_args!("PANIC ({}, {}):\n\t", file, line));
+    con.write_fmt(args);
+
+    // Don't return.
+    loop {} 
+}
 
 #[no_mangle]
 pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
@@ -33,6 +56,18 @@ pub unsafe fn memcmp(p1: *const u8, p2: *const u8, len: usize) -> isize {
     }
     return 0;
 }
+
+#[no_mangle]
+pub unsafe fn __udivdi3() { }
+
+#[no_mangle]
+pub unsafe fn __umoddi3() { }
+
+#[lang = "stack_exhausted"]
+extern fn stack_exhausted() {}
+
+#[lang = "eh_personality"] 
+extern fn eh_personality() {}
 
 #[no_mangle]
 #[allow(non_snake_case)]

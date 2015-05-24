@@ -10,7 +10,7 @@ TARGETSPEC := target
 LINKERSCRIPT := linker.ld
 
 # Module config.
-CRATES := macros rt console boot 
+CRATES := macros console rt boot 
 
 # Program config.
 AS := gcc
@@ -20,7 +20,7 @@ LDFLAGS := -melf_i386 -T $(LINKERSCRIPT) -static --gc-sections
 CC := gcc
 CCFLAGS := -g
 RUSTC := rustc
-RUSTCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g
+RUSTCFLAGS := -O -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g
 
 # Utility functions.
 reverse = $(if $(1),$(call reverse,$(wordlist 2,$(words $(1)),$(1)))) $(firstword $(1))
@@ -35,7 +35,7 @@ C_SRCS := $(shell find $(SRCDIR) -name '*.c')
 C_OBJS := $(call objectify,$(C_SRCS),c,o)
 OBJ_FILES := $(RUST_OBJS) $(C_OBJS) $(ASM_OBJS)
 
-all: $(BINDIR)/$(TARGET)
+all: image
 
 # Include all dependency files.
 DEP_FILES := $(shell [ -d $(DEPDIR) ] && find $(DEPDIR) -name '*.d')
@@ -44,7 +44,7 @@ DEP_FILES := $(shell [ -d $(DEPDIR) ] && find $(DEPDIR) -name '*.d')
 # Build targets.
 $(BINDIR)/$(TARGET): $(OBJ_FILES)
 	@mkdir -p $(@D)
-	$(LD) $(LDFLAGS) -o $@ $(call reverse,$^) $(LIBDIR)/libcore.rlib
+	$(LD) $(LDFLAGS) -o $@ --start-group $(call reverse,$^) $(LIBDIR)/libcore.rlib --end-group
 
 $(DEPDIR)/%.d: $(SRCDIR)/%/mod.rs
 	@mkdir -p $(@D)
