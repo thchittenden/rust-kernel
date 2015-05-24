@@ -1,3 +1,5 @@
+#![crate_name="console"]
+#![crate_type="rlib"]
 #![feature(no_std,core)]
 #![no_std]
 

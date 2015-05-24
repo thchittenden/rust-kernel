@@ -131,9 +131,8 @@ _start_gdt_reload:
     movw %ax, %ds
     movw %ax, %es
     movw %ax, %fs
-    movw %ax, %ss
-    movl $0x0028, %eax
     movw %ax, %gs
+    movw %ax, %ss
 
     # call bootstrap routine
 	call kernel_main

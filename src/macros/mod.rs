@@ -1,19 +1,21 @@
+#![crate_name="macros"]
+#![crate_type="rlib"]
 #![feature(no_std)]
 #![no_std]
 
 #[macro_export]
 macro_rules! panic {
-    ($($arg:tt)*) => ( fail!($($arg)*) );
+    ($($arg:tt)*) => ( loop { } );
 }
 
 #[macro_export]
 macro_rules! print {
     ($dst:expr, $($arg:tt)*) => ({
-        use core::result::{Ok, Err};
+        use core::Result::result::{Ok, Err};
         use core::fmt::Write;
         match format_args!(|args| $dst.write_fmt(args), $($arg)*) {
             Ok (_) => { },
-            Err(_) => panic!("PANIC: got error from FormatWriter"),
+            Err(_) => panic!("PANIC: got error from Write"),
         }
     });
 }
@@ -21,27 +23,27 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     ($dst:expr) => ({
-        use core::result::{Ok, Err};
-        use core::fmt::FormatWriter;
-        match format_args!(|args| $dst.write_fmt(args), "\n") {
+        use core::result::Result::{Ok, Err};
+        use core::fmt::Write;
+        match $dst.write_fmt(format_args!("\n")) {
             Ok (_) => { },
-            Err(_) => panic!("PANIC: got error from FormatWriter"),
+            Err(_) => panic!("PANIC: got error from Write"),
         }
     });
     ($dst:expr, $fmt:expr) => ({
-        use core::result::{Ok, Err};
-        use core::fmt::FormatWriter;
-        match format_args!(|args| $dst.write_fmt(args), concat!($fmt, "\n")) {
+        use core::result::Result::{Ok, Err};
+        use core::fmt::Write;
+        match $dst.write_fmt(format_args!(concat!($fmt, "\n"))) {
             Ok (_) => { },
-            Err(_) => panic!("PANIC: got error from FormatWriter"),
+            Err(_) => panic!("PANIC: got error from Write"),
         }
     });
     ($dst:expr, $fmt:expr, $($arg:tt)*) => ({
-        use core::result::{Ok, Err};
-        use core::fmt::FormatWriter;
-        match format_args!(|args| $dst.write_fmt(args), concat!($fmt, "\n"), $($arg)*) {
+        use core::result::Result::{Ok, Err};
+        use core::fmt::Write;
+        match $dst.write_fmt(format_args!(concat!($fmt, "\n"), $($arg)*)) {
             Ok (_) => { },
-            Err(_) => panic!("PANIC: got error from FormatWriter"),
+            Err(_) => panic!("PANIC: got error from Write"),
         }
     });
 }
