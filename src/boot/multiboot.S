@@ -11,37 +11,50 @@
 .globl _idt
 .globl _tss
 
-# multiboot section
+# Multiboot section. This contains the multiboot header that will allow 
+# bootloaders to recognize this ELF and boot it.
 .section .multiboot
 .align MULTIBOOT_HEADER_ALIGN
     .long MULTIBOOT_HEADER_MAGIC
     .long MULTIBOOT_HEADER_FLAGS
     .long -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
 
-# data section containing GDT, IDT, and TSS
+# Data section containing GDT, IDT, and TSS. The IDT and GDT contain an 
+# accompanying header that the "lgdt/lidt" instructions expect. These headers
+# are composed of the length and address of the table.
 .section .data
+
+# The Global Descriptor Table. We create the bare minimum number of entries for
+# a working kernel. Each of these segments specify at the appropriate privilege
+# level the entire physical address space. This effectively "disables"
+# segmentation as all segmented addresses are equivalent to their underlying
+# virtual addresses. 
+# We additionally create a task descriptor required to load the task register
+# with the "ltr" instruction. This must be intitialized in assembly as it 
+# requires arithmetic of the TSS address which cannot be performed at compile
+# time.
 _gdt_header:
     .word (0x8*6)
     .long _gdt
     .align 4
 _gdt:
-    # empty segment       - SS 0x0000
+    # Empty segment       - SS 0x0000
     .long 0x00000000
     .long 0x00000000
-    # kernel code segment - SS 0x0008
+    # Kernel code segment - SS 0x0008
     .long 0x0000FFFF
     .long 0x00CF9B00
-    # kernel data segment - SS 0x0010
+    # Kernel data segment - SS 0x0010
     .long 0x0000FFFF
     .long 0x00CF9300
-    # user code segment   - SS 0x0018
+    # User code segment   - SS 0x0018
     .long 0x0000FFFF
     .long 0x00CFFB00
-    # user data segment   - SS 0x0020
+    # User data segment   - SS 0x0020
     .long 0x0000FFFF
     .long 0x00CFF300
 _tss_desc:
-    # tss task descriptor, initialized in _start - SS 0x0028
+    # TSS task descriptor, initialized in _start - SS 0x0028
     .long 0x00000000
     .long 0x00000000
 
@@ -53,46 +66,49 @@ _idt_header:
 _idt:
     .space (0x8*256)
 
+# The Task-State Segment. This is required to specify an ESP0 address, which is
+# the address of the stack used when entering kernel mode from user mode.
 _tss:
-    .space 8
+    .space 4
+_tss_esp0:
+    .space 4
+_tss_ss0:
     .word  0x0010 # SS0 = GDT[2]
     .space 92
-    .word  0x0068 # don't use io-bitmap
+    .word  0x0068 # Place the I/O bitmap past the end of the TSS.
 
-# 4K kernel stack.
+# Declare a 4K kernel stack used for initializing the kernel. Hopefully this
+# is enough.
 .section .kernel_stack,"M",@nobits,STACK_SIZE
 _kernel_stack_bottom:
     .space STACK_SIZE 
 _kernel_stack_top:
 
-# Text section with initialization routines.
+# Text section containing all initialization/low level error handling routines.
 .section .text
+
+# This is the entry point of the kernel. In this function we perform all 
+# intiailization required to get to a Rust runtime.
 _start:
     # Initialize stack.
 	leal _kernel_stack_top, %esp
 
-    # check the multiboot header magic we expect to receive
+    # Check the multiboot header magic we expect to receive.
     cmpl $MULTIBOOT_BOOTLOADER_MAGIC, %eax
-    je _start_magic_good
-_start_magic_bad:
-    leal bad_magic_message, %eax
-    pushl %eax
-    call scream_msg
-_start_magic_bad_loop:
-    jmp _start_magic_bad_loop
-
-_start_magic_good:
+    jne _start_magic_bad
+    
     # Push multiboot header.
 	pushl %ebx  
 
-    # Initialize TSS descriptor.
-    leal _tss_desc, %eax  # get tss descriptor entry
-    leal _tss, %ebx       # construct and set first byte
+    # Initialize TSS descriptor. 
+    leal _tss_desc, %eax
+    # First word.
+    leal _tss, %ebx 
     shll $16, %ebx
     orl  $0x67, %ebx        
     movl %ebx, (%eax)
-    
-    leal _tss, %ebx       # construct and set second byte
+    # Second word.
+    leal _tss, %ebx   
     leal _tss, %ecx
     andl $0xFF000000, %ebx
     andl $0x00FF0000, %ecx
@@ -102,29 +118,28 @@ _start_magic_good:
     movl %ebx, 4(%eax)
     
 #if 0 
-    # initialize double fault handler
-    leal _idt, %eax        # get df idt entry
+    # Initialize double fault handler.
+    leal _idt, %eax       
     leal 0x40(%eax), %eax
-    
-    leal df_handler, %ebx # construct and set first byte
+    # First word.
+    leal df_handler, %ebx
     andl $0x0000FFFF, %ebx
     orl  $0x00080000, %ebx
     movl %ebx, (%eax)
-
-    leal df_handler, %ebx # construct and set second byte
+    # Second word.
+    leal df_handler, %ebx 
     andl $0xFFFF0000, %ebx 
     orl  $0x00008E00, %ebx
     movl %ebx, 4(%eax) 
 #endif
 
-    # load gdt, idt, and tss
+    # Load the GDT, IDT, and TSS. 
     lgdt _gdt_header
     lidt _idt_header
-    
     movl $0x0028, %eax
     ltr  %ax
     
-    # initialize segment selectors
+    # Initialize segment selectors.
     ljmp $0x0008, $_start_gdt_reload
 _start_gdt_reload:
     movl $0x0010, %eax
@@ -134,20 +149,27 @@ _start_gdt_reload:
     movw %ax, %gs
     movw %ax, %ss
 
-    # call bootstrap routine
+    # We're now ready to enter the Rust environment. Call kernel_main. 
 	call kernel_main
     
-    # uh oh, we shouldn't have returned, notify user and halt for eternity
+    # kernel_main returned. This definitely shouldn't have happened. Notify 
+    # the user and definitely halt.
     cli
     leal ret_message, %eax
     pushl %eax
-    call scream_msg
-_end:
-    cli
-	hlt
-    jmp _end
+    call _early_broadcast
+    jmp _halt
 
-# Shamelessly copied from 410.
+# If the magic wasn't what we expected, notify the user and halt.
+_start_magic_bad:
+    leal bad_magic_message, %eax
+    pushl %eax
+    call _early_broadcast
+    jmp _halt
+
+
+# If a double-fault occurs, we may be in a corrupted state. Get to a known 
+# state and notify the user. 
 df_handler:
     cli
     movl $0x0010, %eax
@@ -157,20 +179,21 @@ df_handler:
     movw %ax, %gs
     movw %ax, %ss
     
-    # Allocate ourselves a small stack.
+    # Allocate ourselves a small stack. We don't want to corrupt the main stack
+    # in case it could be used for diagnostics.
     leal _kernel_stack_bottom, %esp
     addl $0x100, %esp
     
     # Print the double fault message.
     leal df_message, %eax
     pushl %eax
-    call scream_msg
-df_handler_loop:
-    hlt
-    jmp df_handler_loop
+    call _early_broadcast
+    jmp _halt
 
-# void scream_msg(char* str)
-scream_msg:
+# This function broadcasts a message accross the screen without relying on the
+# console driver. This is used for notifying the user of an error. It could 
+# probably be less annoying.
+_early_broadcast:
     pushl %ebp
     movl %esp, %ebp
     pushl %esi
@@ -189,18 +212,24 @@ scream_msg:
     movl %edi, %eax        
     addl $(2*80*25), %eax   # end address
 
-scream_msg_loop:
+_early_broadcast_loop:
     movl -12(%ebp), %ecx     # load message len
     movl   8(%ebp), %esi     # load message
-    rep movsb               # copy over
+    rep movsb                # copy over
     cmpl %edi, %eax
-    jg scream_msg_loop
+    jg _early_broadcast_loop
 
     addl $4, %esp # remove message len
     popl %edi
     popl %esi
     popl %ebp
     ret
+
+# Stop execution permanently.
+_halt:
+    cli
+    hlt
+    jmp _halt
 
 .section .rodata
 df_message:

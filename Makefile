@@ -10,7 +10,7 @@ TARGETSPEC := target
 LINKERSCRIPT := linker.ld
 
 # Module config.
-CRATES := macros console rt boot 
+CRATES := util macros sync console rt mem boot
 
 # Program config.
 AS := gcc
@@ -52,7 +52,7 @@ $(DEPDIR)/%.d: $(SRCDIR)/%/mod.rs
 
 $(OBJDIR)/lib%.rlib: $(SRCDIR)/%/mod.rs $(DEPDIR)/%.d
 	@mkdir -p $(@D)
-	$(RUSTC) $(RUSTCFLAGS) -o $@ $<
+	$(RUSTC) $(RUSTCFLAGS) -o $@ $< 2> /dev/null
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(@D)

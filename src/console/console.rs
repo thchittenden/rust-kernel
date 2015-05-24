@@ -1,9 +1,11 @@
-use core::fmt::{Write, Error};
+use core::fmt::{Write, Error, Arguments};
 use core::result::Result;
 use core::result::Result::Ok;
 use core::str::StrExt;
 
 use color::Color;
+
+use sync::mutex::Mutex;
 
 pub struct Console {
     // Console dimensions.
@@ -22,18 +24,28 @@ pub struct Console {
     base: *mut u16,
 }
 
+pub const CONSOLE_INIT: Console = Console {
+    rows: 25,
+    cols: 80,
+    row: 0,
+    col: 0,
+    color_fg: Color::White,
+    color_bg: Color::Black,
+    base: 0xB8000 as *mut u16 ,
+};
+
+pub struct SafeConsole {
+    con: Mutex<Console>
+}
+
+pub const SAFE_CONSOLE_INIT: SafeConsole = SafeConsole {
+    con: static_mutex!(CONSOLE_INIT)
+};
+
 impl Console {
 
     pub fn new() -> Console {
-        Console {
-            rows: 25,
-            cols: 80,
-            row: 0,
-            col: 0,
-            color_fg: Color::White,
-            color_bg: Color::Black,
-            base: 0xB8000 as *mut u16,
-        }
+        CONSOLE_INIT
     }
 
     pub fn clear(&mut self) {
@@ -50,8 +62,8 @@ impl Console {
     }
     
     pub fn putc(&mut self, c: char) {
-        //assert!(self.row < self.rows); 
-        //assert!(self.col < self.cols);
+        assert!(self.row < self.rows); 
+        assert!(self.col < self.cols);
 
         let color = ((self.color_bg as u16) << 12) | ((self.color_fg as u16) << 8);
         match c {
@@ -74,21 +86,36 @@ impl Console {
             }
             for i in self.cols * (self.rows - 1) .. self.cols * self.rows {
                 unsafe { *self.base.offset(i) = 0x0 };
-            }   
+            }
+            self.row -= 1;
         }
     }
 }
 
-
-impl Write for Console {
   
+impl Write for Console {
     fn write_str(&mut self, s: &str) -> Result<(), Error> {
-        // TODO, need a mutex around this.
         for c in s.chars() {
             self.putc(c)
         }
         Ok(())
     }
+}
+
+// ALMOST Write, but since SafeConsole has interior mutability the method
+// should not accept a mut reference like Write expects.
+impl SafeConsole {
+    
+    pub fn write_str(&self, s: &str) -> Result<(), Error> {
+        let mut con = self.con.lock().unwrap();
+        con.write_str(s)
+    }
+
+    pub fn write_fmt(&self, args: Arguments) -> Result<(), Error> {
+        let mut con = self.con.lock().unwrap();
+        con.write_fmt(args)
+    }
 
 }
+
 

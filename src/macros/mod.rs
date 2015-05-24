@@ -5,29 +5,25 @@
 
 #[macro_export]
 macro_rules! print {
-    ($dst:expr, $($arg:tt)*) => ({
-        use core::result::Result::{Ok, Err};
+    (($arg:tt)*) => ({
         use core::fmt::Write;
-        write!($dst, $($arg)*);
+        let _ = write!(console::CON, $($arg)*);
     });
 }
 
 #[macro_export]
 macro_rules! println {
-    ($dst:expr) => ({
-        use core::result::Result::{Ok, Err};
+    () => ({
         use core::fmt::Write;
-        write!($dst, "\n");
+        let _ = write!(console::CON, "\n");
     });
-    ($dst:expr, $fmt:expr) => ({
-        use core::result::Result::{Ok, Err};
+    ($fmt:expr) => ({
         use core::fmt::Write;
-        write!($dst, concat!($fmt, "\n"));
+        let _ = write!(console::CON, concat!($fmt, "\n"));
     });
-    ($dst:expr, $fmt:expr, $($arg:tt)*) => ({
-        use core::result::Result::{Ok, Err};
+    ($fmt:expr, $($arg:tt)*) => ({
         use core::fmt::Write;
-        write!($dst, concat!($fmt, "\n"), $($arg)*);
+        let _ = write!(console::CON, concat!($fmt, "\n"), $($arg)*);
     });
 }
 
