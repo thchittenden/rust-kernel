@@ -1,6 +1,6 @@
 #![crate_name="mem"]
 #![crate_type="rlib"]
-#![feature(no_std,core)]
+#![feature(no_std,core,step_by)]
 #![no_std]
 
 #[macro_use] extern crate core;

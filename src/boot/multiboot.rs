@@ -74,6 +74,8 @@ pub const MULTIBOOT_MEMORY_BADRAM: u32 = 5;
 // so there is an additional 4 bytes between each entry.
 pub const MULTIBOOT_MMAP_ENTRY_OFFSET: isize = 4;
 
+// For some reason, we can't actually print these using the derived Debug. Some
+// function deep in the call chain for u64 panics about a wrong digit.
 #[derive(Debug)]
 #[repr(C, packed)]
 pub struct MultibootMMapEntry {

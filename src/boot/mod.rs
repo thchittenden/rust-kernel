@@ -21,6 +21,11 @@ pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
 
     hdr.walk_mmap(add_range_safe);
 
+    let x: usize = phys::get_frame().unwrap();
+    trace!("frame: {:?}", x);
+    //trace!("frame: {}", phys::get_frame().unwrap());
+    //trace!("frame: {}", phys::get_frame().unwrap());
+
     // Don't return.
     loop { }
 }
