@@ -9,8 +9,8 @@ pub const MULTIBOOT_INFO_AOUT_SYMS: u32 = 0x10;
 pub const MULTIBOOT_INFO_ELF_SHDR: u32 = 0x20;
 pub const MULTIBOOT_INFO_MEM_MAP: u32 = 0x40;
 
-#[packed]
 #[derive(Debug)]
+#[repr(C, packed)]
 pub struct MultibootHeader {
     flags: u32,
 
@@ -70,11 +70,12 @@ pub const MULTIBOOT_MEMORY_ACPI_RECLAIMABLE: u32 = 3;
 pub const MULTIBOOT_MEMORY_NVS: u32 = 4;
 pub const MULTIBOOT_MEMORY_BADRAM: u32 = 5;
 
-// The mmap_addr field points 4 bytes into the middle of the MMapEntry 
-// structure so we must offset all entries by this much.
+// The bootloader does some funky things with how the mmap array is layed out
+// so there is an additional 4 bytes between each entry.
 pub const MULTIBOOT_MMAP_ENTRY_OFFSET: isize = 4;
 
-#[packed]
+#[derive(Debug)]
+#[repr(C, packed)]
 pub struct MultibootMMapEntry {
     entry_size: u32,
     region_addr: u64,
@@ -92,17 +93,20 @@ impl MultibootHeader {
         while offset < self.mmap_length as isize {
             
             let cur_entry: &MultibootMMapEntry = unsafe {
-                let addr = mmap.offset(offset - MULTIBOOT_MMAP_ENTRY_OFFSET) as *const MultibootMMapEntry;
+                let addr = mmap.offset(offset) as *const MultibootMMapEntry;
                 &*addr
             };
 
             // Make sure the memory addresses don't overflow.
+            assert!(cur_entry.entry_size != 0);
             assert!(cur_entry.region_addr <= usize::max_value() as u64);
             assert!(cur_entry.region_length <= usize::max_value() as u64);
-            op(cur_entry.region_addr as usize, cur_entry.region_length as usize);
+            if cur_entry.region_type == MULTIBOOT_MEMORY_AVAILABLE {
+                op(cur_entry.region_addr as usize, cur_entry.region_length as usize);
+            }
 
             // Go to the next entry.
-            offset += cur_entry.entry_size as isize;
+            offset += cur_entry.entry_size as isize + MULTIBOOT_MMAP_ENTRY_OFFSET;
         }
     }
 

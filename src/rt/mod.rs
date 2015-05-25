@@ -5,7 +5,7 @@
 #![no_builtins]
 
 #[macro_use] extern crate core;
-#[macro_use] extern crate macros;
+#[macro_use] extern crate util;
 extern crate console;
 
 use core::fmt::{Arguments, Write};

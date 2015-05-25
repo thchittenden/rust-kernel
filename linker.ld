@@ -2,7 +2,7 @@ ENTRY(_start)
 
 SECTIONS
 {
-    /* begin at 1MiB */
+    /* Kernel memory begin at 1MB. */
     . = 1M;
     __kernel_start = .;
 
@@ -34,5 +34,7 @@ SECTIONS
         *(.strtab)
     }
 
-    __kernel_end = ALIGN(4K);
+    /* Kernel memory ends at 16 MB. */
+    . = 16M;
+    __kernel_end = .;
 }

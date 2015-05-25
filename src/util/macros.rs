@@ -1,8 +1,3 @@
-#![crate_name="macros"]
-#![crate_type="rlib"]
-#![feature(no_std)]
-#![no_std]
-
 #[macro_export]
 macro_rules! print {
     (($arg:tt)*) => ({
