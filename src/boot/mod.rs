@@ -10,6 +10,7 @@ extern crate mem;
 
 mod multiboot;
 
+use core::prelude::*;
 use multiboot::MultibootHeader;
 use mem::phys;
 
@@ -20,11 +21,6 @@ pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
     trace!("hello from a brand new kernel");
 
     hdr.walk_mmap(add_range_safe);
-
-    let x: usize = phys::get_frame().unwrap();
-    trace!("frame: {:?}", x);
-    //trace!("frame: {}", phys::get_frame().unwrap());
-    //trace!("frame: {}", phys::get_frame().unwrap());
 
     // Don't return.
     loop { }
@@ -46,7 +42,7 @@ fn add_range_safe(region_start: usize, region_end: usize) {
             // Region does not extend past kernel, chop off the right.
             phys::add_range(region_start, kernel_start);
         }
-    } else if region_start > kernel_start && region_start < kernel_end {
+    } else if region_start >= kernel_start && region_start < kernel_end {
         // Region overlaps from the middle. Chop off the left. 
         phys::add_range(kernel_end, region_end);
     } else {

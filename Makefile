@@ -20,7 +20,7 @@ LDFLAGS := -melf_i386 -T $(LINKERSCRIPT) -static --gc-sections
 CC := gcc
 CCFLAGS := -g
 RUSTC := rustc
-RUSTCFLAGS := -O -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g
+RUSTCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g
 
 # Utility functions.
 reverse = $(if $(1),$(call reverse,$(wordlist 2,$(words $(1)),$(1)))) $(firstword $(1))
