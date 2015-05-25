@@ -14,9 +14,9 @@ pub fn init() {
 
 }
 
-pub fn add_range(base: usize, len: usize) {
-    //assert!(util::is_page_aligned(base));
-    //assert!(util::is_page_aligned(len));
-    trace!("adding range: {:x} - {:x}", base, base + len);
+pub fn add_range(start: usize, end: usize) {
+    assert!(util::is_page_aligned(start));
+    assert!(util::is_page_aligned(end));
+    trace!("adding range: {:x}-{:x}", start, end);
 }
 

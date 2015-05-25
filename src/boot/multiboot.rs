@@ -91,7 +91,8 @@ impl MultibootHeader {
         let mmap = self.mmap_addr as *const u8;
         let mut offset: isize = 0;
         while offset < self.mmap_length as isize {
-            
+           
+            // Get the current mmap entry.
             let cur_entry: &MultibootMMapEntry = unsafe {
                 let addr = mmap.offset(offset) as *const MultibootMMapEntry;
                 &*addr
@@ -102,7 +103,9 @@ impl MultibootHeader {
             assert!(cur_entry.region_addr <= usize::max_value() as u64);
             assert!(cur_entry.region_length <= usize::max_value() as u64);
             if cur_entry.region_type == MULTIBOOT_MEMORY_AVAILABLE {
-                op(cur_entry.region_addr as usize, cur_entry.region_length as usize);
+                let region_start = cur_entry.region_addr as usize;
+                let region_end = region_start + cur_entry.region_length as usize;
+                op(region_start, region_end);
             }
 
             // Go to the next entry.

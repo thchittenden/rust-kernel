@@ -27,11 +27,10 @@ pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
 
 // This function filters memory ranges reported by the bootloader to remove the
 // pages reserved for kernel memory.
-fn add_range_safe(base: usize, len: usize) {
+fn add_range_safe(region_start: usize, region_end: usize) {
     let kernel_start: usize = linker_sym!(__kernel_start);
     let kernel_end: usize = linker_sym!(__kernel_end);
-    let region_start = base;
-    let region_end = base + len;
+    let region_end = util::page_align(region_end);
     if region_start < kernel_start && region_end > kernel_start {
         // Region overlaps from the left. 
         if region_end > kernel_end {
