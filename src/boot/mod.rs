@@ -30,8 +30,8 @@ pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
     // Try some allocations.
     let x = Box::new(3);
     trace!("x: {:?}", x);
-    //let y = Box::new(x);
-    //trace!("y: {:?}", y);
+    let y = Box::new(x);
+    trace!("y: {:?}", y);
 
     // Don't return.
     loop { }

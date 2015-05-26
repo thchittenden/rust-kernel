@@ -77,7 +77,13 @@ impl<T: fmt::Debug> fmt::Debug for Box<T> {
 
 impl<T> Deref for Box<T> {
     type Target = T;
-    fn deref(&self) -> &T { &**self }
+    fn deref(&self) -> &T { 
+        // We cannot implement this as &**self because it causes an infinite 
+        // loop (trying to call deref!). I don't really know why this is 
+        // because this is how deref is implemented for the standard library's
+        // Box...
+        unsafe { self.0.as_ref().unwrap() } 
+    }
 }
 
 impl<T> DerefMut for Box<T> {
