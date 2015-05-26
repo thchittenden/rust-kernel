@@ -2,8 +2,10 @@
 #include "multiboot.h"
 
 #define MULTIBOOT_HEADER_FLAGS (MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO)
-#define STACK_SIZE 0x4000
+#define STACK_SIZE 0x1000
+#define EXCEPTION_STACK_SIZE 0x100
 
+.globl __morestack
 .globl _kernel_stack_bottom
 .globl _kernel_stack_top
 .globl _start
@@ -34,7 +36,7 @@
 # requires arithmetic of the TSS address which cannot be performed at compile
 # time.
 _gdt_header:
-    .word (0x8*6)
+    .word (0x8*7)
     .long _gdt
     .align 4
 _gdt:
@@ -53,8 +55,12 @@ _gdt:
     # User data segment   - SS 0x0020
     .long 0x0000FFFF
     .long 0x00CFF300
+_tl_desc:
+    # Thread local descriptor, initialized in _start - SS 0x0028
+    .long 0x00000014
+    .long 0x00409300
 _tss_desc:
-    # TSS task descriptor, initialized in _start - SS 0x0028
+    # TSS task descriptor, initialized in _start - SS 0x0030
     .long 0x00000000
     .long 0x00000000
 
@@ -77,12 +83,20 @@ _tss_ss0:
     .space 92
     .word  0x0068 # Place the I/O bitmap past the end of the TSS.
 
-# Declare a 4K kernel stack used for initializing the kernel. Hopefully this
-# is enough.
-.section .kernel_stack,"M",@nobits,STACK_SIZE
+# The thread local segment. This is to support stack overflow checks on the 
+# initial stack. 
+_tl_area:
+    .space 16
+    .long _kernel_stack_bottom
+
+# Declare our stacks in BSS.
+.section .kernel_stack,"M",@nobits,STACK_SIZE+EXCEPTION_STACK_SIZE
 _kernel_stack_bottom:
     .space STACK_SIZE 
 _kernel_stack_top:
+_exception_stack_bottom:
+    .space EXCEPTION_STACK_SIZE
+_exception_stack_top:
 
 # Text section containing all initialization/low level error handling routines.
 .section .text
@@ -116,18 +130,33 @@ _start:
     orl  %ecx, %ebx
     orl  $0x00008900, %ebx
     movl %ebx, 4(%eax)
+
+    # Initialize thread local descriptor.
+    leal _tl_desc, %eax
+    # First word.
+    leal _tl_area, %ebx
+    shll $16, %ebx
+    orl %ebx, (%eax)
+    # Second word.
+    leal _tl_area, %ebx
+    andl $0xFF000000, %ebx
+    orl %ebx, 4(%eax)
+    leal _tl_area, %ebx
+    andl $0x00FF0000, %ebx
+    shrl $16, %ebx
+    orl %ebx, 4(%eax)
     
-#if 0 
+#if 1 
     # Initialize double fault handler.
     leal _idt, %eax       
     leal 0x40(%eax), %eax
     # First word.
-    leal df_handler, %ebx
+    leal _df_handler, %ebx
     andl $0x0000FFFF, %ebx
     orl  $0x00080000, %ebx
     movl %ebx, (%eax)
     # Second word.
-    leal df_handler, %ebx 
+    leal _df_handler, %ebx 
     andl $0xFFFF0000, %ebx 
     orl  $0x00008E00, %ebx
     movl %ebx, 4(%eax) 
@@ -136,7 +165,7 @@ _start:
     # Load the GDT, IDT, and TSS. 
     lgdt _gdt_header
     lidt _idt_header
-    movl $0x0028, %eax
+    movl $0x0030, %eax
     ltr  %ax
     
     # Initialize segment selectors.
@@ -145,9 +174,10 @@ _start_gdt_reload:
     movl $0x0010, %eax
     movw %ax, %ds
     movw %ax, %es
-    movw %ax, %fs
     movw %ax, %gs
     movw %ax, %ss
+    movl $0x0028, %eax
+    movw %ax, %fs
 
     # We're now ready to enter the Rust environment. Call kernel_main. 
 	call kernel_main
@@ -167,10 +197,23 @@ _start_magic_bad:
     call _early_broadcast
     jmp _halt
 
+# Called if a stack overflows.
+__morestack:
+    cli
+    
+    # Use the exception stack, because duh.
+    leal _exception_stack_top, %esp
+    pushl %ebp
+    movl %esp, %ebp
+
+    leal overflow_message, %eax
+    pushl %eax
+    call _early_broadcast
+    jmp _halt
 
 # If a double-fault occurs, we may be in a corrupted state. Get to a known 
 # state and notify the user. 
-df_handler:
+_df_handler:
     cli
     movl $0x0010, %eax
     movw %ax, %ds
@@ -179,10 +222,10 @@ df_handler:
     movw %ax, %gs
     movw %ax, %ss
     
-    # Allocate ourselves a small stack. We don't want to corrupt the main stack
-    # in case it could be used for diagnostics.
-    leal _kernel_stack_bottom, %esp
-    addl $0x100, %esp
+    # Use the exception stack so that we preserve the main stack.
+    leal _exception_stack_top, %esp
+    pushl %ebp
+    movl %esp, %ebp
     
     # Print the double fault message.
     leal df_message, %eax
@@ -238,3 +281,5 @@ ret_message:
     .asciz "K\re\rr\rn\re\rl\r \rR\re\rt\ru\rr\rn\re\rd\r!\r \r"
 bad_magic_message:
     .asciz "B\ra\rd\r \rm\ra\rg\ri\rc\r \rv\ra\rl\ru\re\r!\r \r"
+overflow_message:
+    .asciz "S\rt\ra\rc\rk\r \rO\rv\re\rr\rf\rl\ro\rw\r!\r \r"

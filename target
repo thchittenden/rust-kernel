@@ -3,9 +3,9 @@
     "target-endian": "little",
     "target-word-size": "32",
     "target-pointer-width": "32",
-    "llvm-target": "i686-unknown-none-gnu",
+    "llvm-target": "i686-unknown-dragonfly-gnu",
     "arch": "x86",
     "os": "none",
-    "morestack": false,
+    "morestack": true,
     "relocation-model": "static"
 }
