@@ -1,20 +1,21 @@
 use core::prelude::*;
+use core::ptr::Unique;
 use sync::mutex::Mutex;
 use util::{PAGE_SIZE, is_page_aligned};
 logger_init!(Trace);
 
-static FREE_FRAME_LIST: Mutex<Option<*mut Frame>> = static_mutex!(None);
+static FREE_FRAME_LIST: Mutex<Option<Unique<Frame>>> = static_mutex!(None);
 
 struct Frame {
-    next: Option<*mut Frame>
+    next: Option<Unique<Frame>>
 }
 
 impl Frame {
-    fn from_addr(addr: usize) -> *mut Frame {
+    fn from_addr(addr: usize) -> Unique<Frame> {
         // Creates and initializes a frame from a memory address.
         assert!(is_page_aligned(addr));
-        let frame = addr as *mut Frame;
-        unsafe { (*frame).next = None; };
+        let frame = unsafe { Unique::new(addr as *mut Frame) };
+        unsafe { (**frame).next = None; };
         frame
     }
 }
@@ -34,17 +35,17 @@ pub fn add_range(start: usize, end: usize) {
 
         // Add the frame to the free frame list.
         let frame = Frame::from_addr(frame_addr);
-        unsafe { (*frame).next = head.take(); };
+        unsafe { (**frame).next = head.take(); };
         *head = Some(frame);
     }
 }
 
 pub fn get_frame() -> Option<usize> {
     let mut head = FREE_FRAME_LIST.lock().unwrap();
-    head.and_then(|frame| {
-        assert!(is_page_aligned(frame as usize));
-        *head = unsafe { (*frame).next };
-        Some(frame as usize)
+    head.take().and_then(|frame| {
+        assert!(is_page_aligned(*frame as usize));
+        *head = unsafe { (**frame).next.take() };
+        Some(*frame as usize)
     })
 }
 
@@ -52,6 +53,6 @@ pub fn return_frame(frame_addr: usize) {
     assert!(is_page_aligned(frame_addr));
     let mut head = FREE_FRAME_LIST.lock().unwrap();
     let frame = Frame::from_addr(frame_addr);
-    unsafe { (*frame).next = head.take(); };
+    unsafe { (**frame).next = head.take(); };
     *head = Some(frame);
 }

@@ -10,7 +10,7 @@ TARGETSPEC := target
 LINKERSCRIPT := linker.ld
 
 # Module config.
-CRATES := sync console util rt mem boot
+CRATES := sync console util rt alloc mem boot
 
 # Program config.
 AS := gcc

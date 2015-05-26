@@ -7,10 +7,11 @@
 #[macro_use] extern crate util;
 extern crate console;
 extern crate mem;
+extern crate alloc;
 
 mod multiboot;
 
-use core::prelude::*;
+use alloc::boxed::Box;
 use multiboot::MultibootHeader;
 use mem::phys;
 
@@ -20,7 +21,17 @@ logger_init!(Trace);
 pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
     trace!("hello from a brand new kernel");
 
+    // Initialize the allocator.
+    alloc::init();
+
+    // Initialize physical memory with all valid memory regions.
     hdr.walk_mmap(add_range_safe);
+    
+    // Try some allocations.
+    let x = Box::new(3);
+    trace!("x: {:?}", x);
+    //let y = Box::new(x);
+    //trace!("y: {:?}", y);
 
     // Don't return.
     loop { }

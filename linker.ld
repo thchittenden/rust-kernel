@@ -34,7 +34,11 @@ SECTIONS
         *(.strtab)
     }
 
+    /* The heap starts after BSS. */
+    __heap_start = .;
+
     /* Kernel memory ends at 16 MB. */
     . = 16M;
+    __heap_end = .;
     __kernel_end = .;
 }
