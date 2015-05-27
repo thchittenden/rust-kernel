@@ -9,6 +9,8 @@ extern crate console;
 extern crate mem;
 extern crate alloc;
 
+use core::mem::drop;
+use alloc::boxed::Box;
 use util::multiboot::MultibootHeader;
 use mem::phys;
 
@@ -24,6 +26,10 @@ pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
     // Initialize physical memory with all valid memory regions.
     mem::init(hdr);
     
+    let x = Box::new(3);
+    let y = Box::new(x);
+    trace!("y: {:?}", y);
+    drop(y);
 
     // Don't return.
     loop { }

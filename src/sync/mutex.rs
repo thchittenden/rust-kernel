@@ -46,9 +46,9 @@ impl <T> Mutex<T> {
         let my_ticket = self.next_ticket.fetch_add(1, Ordering::SeqCst);
 
         // Wait for our ticket to come up.
-        while my_ticket != self.curr_ticket.load(Ordering::SeqCst) {
+        //while my_ticket != self.curr_ticket.load(Ordering::SeqCst) {
             // TODO spin until scheduler done...
-        }
+        //}
 
         // We now have the lock.
         Some(MutexGuard {

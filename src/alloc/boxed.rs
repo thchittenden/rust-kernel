@@ -1,29 +1,38 @@
 // Kernel box implementation. This was heavily lifted from the std library's Box.
 use core::prelude::*;
+use core::ptr;
 use core::ptr::Unique;
+use core::mem;
 use core::hash;
 use core::hash::Hash;
 use core::cmp::Ordering;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
+logger_init!(Trace);
 
+//#[unsafe_no_drop_flag]
 pub struct Box<T>(Unique<T>);
 
 impl<T> Box<T> {
-    
     pub fn new (x: T) -> Option<Box<T>> {
         ::allocate(x).map(Box)
     }
-
 }
 
 impl <T> Drop for Box<T> {
-    
     fn drop(&mut self) {
-        let ptr = unsafe { Unique::new(self as *mut Self) };
-        ::deallocate(ptr);
-    }
+        trace!("dropping 0x{:x}", &mut **self as *mut T as usize);
 
+        // Swap a null pointer into the box.
+        let mut val = unsafe { Unique::new(ptr::null_mut()) };
+        mem::swap(&mut self.0, &mut val);
+
+        // If we get a non-null pointer back, then we are the first 
+        // call to the destructor so we should deallocate the pointer.
+        if !val.is_null() {
+            ::deallocate(val);
+        }
+    }
 }
 
 impl<T> Deref for Box<T> {

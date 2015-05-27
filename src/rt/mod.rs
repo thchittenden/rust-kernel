@@ -32,6 +32,21 @@ pub extern fn rust_begin_unwind(args: Arguments, file: &str, line: usize) -> ! {
     loop {} 
 }
 
+// Converts a C style string (*const u8) to a rust &str
+macro_rules! cstr {
+    ($s:expr) => ({
+        use core::slice;
+        use core::str;
+        str::from_utf8_unchecked(slice::from_raw_parts($s, strlen($s) as usize))
+    })
+}
+
+// This is used by LMM.
+#[no_mangle]
+pub unsafe extern fn __assert_fail(msg: *const u8, file: *const u8, line: usize, func: *const u8) -> ! {
+    rust_begin_unwind(format_args!("{}: {}", cstr!(func), cstr!(msg)), cstr!(file), line);
+}
+
 #[no_mangle]
 pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
     for i in 0 .. len as isize {
@@ -55,6 +70,15 @@ pub unsafe fn memcmp(p1: *const u8, p2: *const u8, len: usize) -> isize {
         }
     }
     return 0;
+}
+
+#[no_mangle]
+pub unsafe fn strlen(s: *const u8) -> isize {
+    let mut len = 0;
+    while *s.offset(len) != 0 {
+        len += 1;
+    }
+    len
 }
 
 #[no_mangle]

@@ -3,7 +3,8 @@
 use core::prelude::*;
 use core::ptr::Unique;
 use core::mem;
-use ::Allocator;
+use Allocator;
+use util::align_up;
 logger_init!(Trace);
 
 pub struct NaiveAllocator {
@@ -34,23 +35,19 @@ impl NaiveAllocator {
 
 impl Allocator for NaiveAllocator {
 
-    fn allocate<T>(&mut self, elem: T) -> Option<Unique<T>> {
-        let size = mem::size_of::<T>();
-        trace!("trying to allocate {} bytes", size);
-        if self.heap_cur + size > self.heap_end {
+    fn allocate_raw(&mut self, size: usize, align: usize) -> Option<usize> {
+        trace!("trying to allocate {} bytes aligned to 0x{:x}", size, align);
+        if align_up(self.heap_cur, align) + size > self.heap_end {
             trace!("not enough space on heap");
             None
         } else {
-            trace!("allocated {} bytes at {:x}", size, self.heap_cur);
-            // Allocate some space and copy the data in.
-            let alloc = unsafe { Unique::new(self.heap_cur as *mut T) };
-            unsafe { **alloc = elem };
-            self.heap_cur += size;
-            Some(alloc)
+            trace!("allocated {} bytes at {:x}", size, align_up(self.heap_cur, align));
+            self.heap_cur = align_up(self.heap_cur, align) + size;
+            Some(self.heap_cur - size)
         }
     }
 
-    fn deallocate<T>(&mut self, elem: Unique<T>) {
+    fn deallocate_raw(&mut self, addr: usize, size: usize) {
         // Welp.
     }
 

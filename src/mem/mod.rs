@@ -16,11 +16,18 @@ pub mod virt;
 use virt::{PageTable, PageTableEntry};
 use util::{page_align, is_page_aligned, PAGE_SIZE};
 use util::multiboot::MultibootHeader;
+use util::asm::enable_paging;
 
 pub fn init(hdr: &MultibootHeader) {
     phys::init();
     virt::init();
     hdr.walk_mmap(add_range_safe);
+    direct_map_kernel(); 
+    //enable_paging();
+}
+
+fn direct_map_kernel() {
+     
 }
 
 // This function filters memory ranges reported by the bootloader to remove the
