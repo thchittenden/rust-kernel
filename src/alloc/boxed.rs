@@ -1,7 +1,6 @@
 // Kernel box implementation. This was heavily lifted from the std library's Box.
 use core::prelude::*;
 use core::ptr::Unique;
-use core::mem;
 use core::hash;
 use core::hash::Hash;
 use core::cmp::Ordering;
@@ -16,15 +15,35 @@ impl<T> Box<T> {
         ::allocate(x).map(Box)
     }
 
-    pub fn from_raw(x: *mut T) -> Box<T> {
-        unsafe { mem::transmute(x) }
-    }
+}
 
-    pub fn into_raw(self) -> *mut T {
-        unsafe { mem::transmute(self) }
+impl <T> Drop for Box<T> {
+    
+    fn drop(&mut self) {
+        let ptr = unsafe { Unique::new(self as *mut Self) };
+        ::deallocate(ptr);
     }
 
 }
+
+impl<T> Deref for Box<T> {
+    type Target = T;
+    fn deref(&self) -> &T { 
+        // We cannot implement this as &**self because it causes an infinite 
+        // loop (trying to call deref!). I don't really know why this is 
+        // because this is how deref is implemented for the standard library's
+        // Box...
+        unsafe { self.0.get() } 
+    }
+}
+
+impl<T> DerefMut for Box<T> {
+    fn deref_mut(&mut self) -> &mut T { 
+        // See Deref.
+        unsafe { self.0.get_mut() }
+    }
+}
+
 
 impl<T: PartialEq> PartialEq for Box<T> {
     #[inline]
@@ -73,21 +92,6 @@ impl<T: fmt::Debug> fmt::Debug for Box<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
     }
-}
-
-impl<T> Deref for Box<T> {
-    type Target = T;
-    fn deref(&self) -> &T { 
-        // We cannot implement this as &**self because it causes an infinite 
-        // loop (trying to call deref!). I don't really know why this is 
-        // because this is how deref is implemented for the standard library's
-        // Box...
-        unsafe { self.0.as_ref().unwrap() } 
-    }
-}
-
-impl<T> DerefMut for Box<T> {
-    fn deref_mut(&mut self) -> &mut T { &mut **self }
 }
 
 impl<I: Iterator> Iterator for Box<I> {

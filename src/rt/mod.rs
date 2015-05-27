@@ -58,10 +58,10 @@ pub unsafe fn memcmp(p1: *const u8, p2: *const u8, len: usize) -> isize {
 }
 
 #[no_mangle]
-pub unsafe fn __udivdi3() { }
+pub unsafe fn __udivdi3() { panic!("no __udivdi3") }
 
 #[no_mangle]
-pub unsafe fn __umoddi3() { }
+pub unsafe fn __umoddi3() { panic!("no __umoddi3") }
 
 #[lang = "stack_exhausted"]
 extern fn stack_exhausted() {}
