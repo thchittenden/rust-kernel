@@ -17,6 +17,9 @@ impl<T> Box<T> {
     pub fn new (x: T) -> Option<Box<T>> {
         ::allocate(x).map(Box)
     }
+    pub fn new_aligned(x: T, align: usize) -> Option<Box<T>> {
+        ::allocate_aligned(x, align).map(Box)
+    }
 }
 
 impl <T> Drop for Box<T> {

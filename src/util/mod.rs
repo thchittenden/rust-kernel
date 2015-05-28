@@ -13,6 +13,7 @@ pub mod macros;
 pub mod multiboot;
 
 pub const PAGE_SIZE: usize = 0x1000;
+pub const PAGE_SHIFT: usize = 12;
 
 #[inline]
 pub fn is_page_aligned(addr: usize) -> bool {

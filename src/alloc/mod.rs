@@ -65,6 +65,10 @@ pub fn allocate<T>(elem: T) -> Option<Unique<T>> {
     ALLOCATOR.lock().unwrap().allocate(elem)
 }
 
+pub fn allocate_aligned<T>(elem: T, align: usize) -> Option<Unique<T>> {
+    ALLOCATOR.lock().unwrap().allocate_aligned(elem, align)
+}
+
 pub fn deallocate<T>(elem: Unique<T>) {
     ALLOCATOR.lock().unwrap().deallocate(elem)
 }
