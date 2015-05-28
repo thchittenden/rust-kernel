@@ -50,6 +50,7 @@ $(BINDIR)/$(TARGET): $(OBJ_FILES)
 $(DEPDIR)/%.d: $(SRCDIR)/%/mod.rs
 	@mkdir -p $(@D)
 	-$(RUSTC) $(RUSTCFLAGS) --emit dep-info -o $@ $< 2> /dev/null
+	-./getdeps.py $@ $< $(OBJDIR) $(CRATES) >> $@
 
 $(OBJDIR)/lib%.rlib: $(SRCDIR)/%/mod.rs $(DEPDIR)/%.d
 	@mkdir -p $(@D)
