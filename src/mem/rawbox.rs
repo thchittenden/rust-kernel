@@ -20,6 +20,10 @@ impl<T> RawBox<T> {
         unsafe { self.0.get_mut() as *mut T }    
     }
 
+    pub fn borrow(&self) -> &T {
+        unsafe { self.0.get() }
+    }
+
 }
 
 impl<T> Deref for RawBox<T> {

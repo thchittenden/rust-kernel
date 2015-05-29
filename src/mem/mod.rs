@@ -1,11 +1,11 @@
 #![crate_name="mem"]
 #![crate_type="rlib"]
-#![feature(no_std,core,step_by,unique)]
+#![feature(no_std,core,step_by,unique,negate_unsigned)]
 #![no_std]
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
-#[macro_use] extern crate sync;
+#[macro_use] extern crate mutex;
 extern crate alloc;
 extern crate console;
 
@@ -14,60 +14,78 @@ pub mod phys;
 pub mod virt;
 
 use core::prelude::*;
+use core::mem;
 use alloc::boxed::Box;
 use rawbox::RawBox;
+use phys::Frame;
 use virt::{PageTableEntry, PageDirectoryEntry, PageTable, PageDirectory};
-use virt::{PDE_WRITABLE, PDE_SUPERVISOR, PDE_MAPPED_SIZE};
+use virt::{PDE_WRITABLE, PDE_SUPERVISOR, PDE_MAPPED_SIZE, PD_RECMAP_ADDR};
+use virt::{PTE_WRITABLE, PTE_SUPERVISOR, PTE_GLOBAL};
 use util::{page_align, is_page_aligned, PAGE_SIZE};
+use util::global::Global;
 use util::multiboot::MultibootHeader;
-use util::asm::enable_paging;
+use util::asm::{enable_paging, enable_global_pages, set_cr3};
 logger_init!(Trace);
 
 // The kernel page directory. This is the default page directory used by new tasks. 
-static kpd: Option<RawBox<PageDirectory>> = None;
+static kpd: Global<RawBox<PageDirectory>> = global_init!();
+
 
 pub fn init(hdr: &MultibootHeader) {
     phys::init();
     virt::init();
     hdr.walk_mmap(add_range_safe);
     direct_map_kernel(); 
-    //enable_paging();
+    set_cr3(kpd.borrow() as *const PageDirectory as usize);
+    enable_global_pages();
+    enable_paging();
 }
 
 fn direct_map_kernel() {
     trace!("direct mapping kernel");
     let mut pd = PageDirectory::new().unwrap();
-    let mut pte0 = PageTable::new().unwrap();
-    let mut pte1 = PageTable::new().unwrap();
-    let mut pte2 = PageTable::new().unwrap();
-    let mut pte3 = PageTable::new().unwrap();
+    let pt0 = PageTable::new().unwrap();
+    let pt1 = PageTable::new().unwrap();
+    let pt2 = PageTable::new().unwrap();
+    let pt3 = PageTable::new().unwrap();
     trace!("pd: {:?}", pd);
-    trace!("pte0: {:?}", pte0);
-    trace!("pte1: {:?}", pte1);
-    trace!("pte2: {:?}", pte2);
-    trace!("pte3: {:?}", pte3);
+    trace!("pt0: {:?}", pt0);
+    trace!("pt1: {:?}", pt1);
+    trace!("pt2: {:?}", pt2);
+    trace!("pt3: {:?}", pt3);
 
     // First, map the page directory into itself. This is ok because page directories look a lot
     // like page tables so by mapping the page directory into itself causes that entry to in the
     // page directory to map all page tables. See the following link if interested.
     // http://wiki.osdev.org/Page_Tables#Recursive_mapping
-    let pd_pt = unsafe { pd.as_pagetable() }; //FIXME: RFX/811
-    pd.pdes[1023].set_pagetable(pd_pt);
+    let pdflags = PDE_SUPERVISOR | PDE_WRITABLE;
+    let pdrec = unsafe { pd.as_pagetable() }; //FIXME: RFC/811
+    pd.map_pagetable(PD_RECMAP_ADDR, pdrec, pdflags);
 
     // Map in the four page tables.
-    let pdflags = PDE_SUPERVISOR | PDE_WRITABLE;
-    pd.map_pagetable(0*PDE_MAPPED_SIZE, pte0, pdflags);
-    pd.map_pagetable(1*PDE_MAPPED_SIZE, pte1, pdflags);
-    pd.map_pagetable(2*PDE_MAPPED_SIZE, pte2, pdflags);
-    pd.map_pagetable(3*PDE_MAPPED_SIZE, pte3, pdflags);
+    pd.map_pagetable(0*PDE_MAPPED_SIZE, pt0, pdflags);
+    pd.map_pagetable(1*PDE_MAPPED_SIZE, pt1, pdflags);
+    pd.map_pagetable(2*PDE_MAPPED_SIZE, pt2, pdflags);
+    pd.map_pagetable(3*PDE_MAPPED_SIZE, pt3, pdflags);
 
     // Map in the kernel.
+    let ptflags = PTE_SUPERVISOR | PTE_WRITABLE | PTE_GLOBAL;
     let kernel_start = linker_sym!(__kernel_start);
     let kernel_end = linker_sym!(__kernel_end);
     for page in (kernel_start..kernel_end).step_by(PAGE_SIZE) {
         assert!(pd.has_pagetable(page));
+        pd.map_page(page, RawBox::from_raw(page as *mut Frame), ptflags);
     }
 
+    // Mark code/rodata as readonly to prevent a few bugs.
+    let ro_start = linker_sym!(__ro_start);
+    let ro_end = linker_sym!(__ro_end);
+    for page in (ro_start..ro_end).step_by(PAGE_SIZE) {
+        pd.remove_pte_flags(page, PTE_WRITABLE);
+    }
+
+    // Set the global default kernel page directory. We're subverting the 
+    kpd.init(pd);
 }
 
 // This function filters memory ranges reported by the bootloader to remove the

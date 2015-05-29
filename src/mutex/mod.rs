@@ -1,7 +1,20 @@
+#![crate_name="mutex"]
+#![crate_type="rlib"]
+#![feature(no_std,core)]
+#![no_std]
+
+extern crate core;
+
 use core::atomic::{AtomicUsize, Ordering};
 use core::cell::UnsafeCell;
 use core::ops::{Deref, DerefMut};
 use core::prelude::*;
+
+// This is our entry point to the scheduler. This prevents the need for libmutex to rely on
+// libsched which needs to rely on libmutex.
+extern {
+    fn sched_yield(tid: Option<usize>);
+}
 
 pub struct MutexGuard<'a, T: 'a> {
     lock: &'a Mutex<T>,
@@ -20,7 +33,7 @@ macro_rules! static_mutex {
     ($data:expr) => ({
         use core::atomic::ATOMIC_USIZE_INIT;
         use core::cell::UnsafeCell;
-        use $crate::mutex::Mutex;
+        use $crate::Mutex;
         Mutex {
             curr_ticket: ATOMIC_USIZE_INIT,
             next_ticket: ATOMIC_USIZE_INIT,
@@ -46,9 +59,10 @@ impl <T> Mutex<T> {
         let my_ticket = self.next_ticket.fetch_add(1, Ordering::SeqCst);
 
         // Wait for our ticket to come up.
-        //while my_ticket != self.curr_ticket.load(Ordering::SeqCst) {
-            // TODO spin until scheduler done...
-        //}
+        while my_ticket != self.curr_ticket.load(Ordering::SeqCst) {
+            // TODO don't yield to anyone, yield to someone! (but not Some(1))
+            unsafe { sched_yield(None) };
+        }
 
         // We now have the lock.
         Some(MutexGuard {

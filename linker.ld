@@ -8,6 +8,7 @@ SECTIONS
 
     /* put multiboot in .text since it's always located at the beginning
      * of the ELF */
+    __ro_start = .;
     .text ALIGN(4K): {
         *(.multiboot)
         *(.text*)
@@ -16,6 +17,7 @@ SECTIONS
     .rodata : {
         *(.rodata*)
     }
+    __ro_end = .;
 
     /* start a new block (page) for writeable stuff */
     .data ALIGN(4K) : {

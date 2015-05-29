@@ -10,8 +10,8 @@ INCDIR := inc
 TARGETSPEC := target
 LINKERSCRIPT := linker.ld
 
-# Module config.
-CRATES := sync console util rt alloc mem task sched boot
+# Module config. This order is important (and fragile!)
+CRATES := mutex console util alloc collections task sched sync mem rt boot
 
 # Program config.
 AS := gcc

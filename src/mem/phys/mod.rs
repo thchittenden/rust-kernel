@@ -2,7 +2,7 @@ use core::prelude::*;
 use core::mem;
 use core::fmt;
 use core::fmt::{Debug, Formatter};
-use sync::mutex::Mutex;
+use mutex::Mutex;
 use util::{PAGE_SIZE, is_page_aligned};
 use ::rawbox::RawBox;
 logger_init!(Trace);
@@ -48,6 +48,10 @@ pub fn add_range(start: usize, end: usize) {
 
     let mut head = FREE_FRAME_LIST.lock().unwrap();
     for frame_addr in (start..end).step_by(PAGE_SIZE) {
+        // Filter out the zero frame because a frame with address 0 is "not present". This
+        // check probably does not belong here.
+        if frame_addr == 0 { continue }
+        
         // Add the frame to the free frame list.
         let mut frame = Frame::from_addr(frame_addr);
         frame.next = head.take();

@@ -5,12 +5,11 @@
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
-#[macro_use] extern crate sync;
+#[macro_use] extern crate mutex;
 extern crate console;
 logger_init!(Trace);
 
 pub mod boxed;
-
 mod naive;
 mod lmm;
 
@@ -19,7 +18,7 @@ use core::mem;
 use core::mem::min_align_of;
 use core::ptr;
 use core::ptr::Unique;
-use sync::mutex::Mutex;
+use mutex::Mutex;
 use lmm::{LMMAllocator, LMM_ALLOCATOR_INIT};
 
 trait Allocator {
@@ -61,14 +60,14 @@ pub fn init() {
     ALLOCATOR.lock().unwrap().init(heap_start, heap_end);
 }
 
-pub fn allocate<T>(elem: T) -> Option<Unique<T>> {
+pub extern fn allocate<T>(elem: T) -> Option<Unique<T>> {
     ALLOCATOR.lock().unwrap().allocate(elem)
 }
 
-pub fn allocate_aligned<T>(elem: T, align: usize) -> Option<Unique<T>> {
+pub extern fn allocate_aligned<T>(elem: T, align: usize) -> Option<Unique<T>> {
     ALLOCATOR.lock().unwrap().allocate_aligned(elem, align)
 }
 
-pub fn deallocate<T>(elem: Unique<T>) {
+pub extern fn deallocate<T>(elem: Unique<T>) {
     ALLOCATOR.lock().unwrap().deallocate(elem)
 }

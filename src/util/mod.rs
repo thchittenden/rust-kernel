@@ -8,6 +8,7 @@ extern crate console;
 
 pub mod asm;
 pub mod bitflags;
+pub mod global;
 pub mod logger;
 pub mod macros;
 pub mod multiboot;

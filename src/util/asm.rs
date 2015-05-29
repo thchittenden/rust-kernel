@@ -23,7 +23,7 @@ pub fn enable_4mb_pages() {
     unsafe {
         asm!("mov %cr4, %eax\n\t
               or $0, %eax\n\t
-              mov %eax, %cr5\n\t"
+              mov %eax, %cr4\n\t"
              : 
              : "r"(CR4_PSE)
              : "eax")
@@ -34,7 +34,7 @@ pub fn enable_global_pages() {
     unsafe {
         asm!("mov %cr4, %eax\n\t
               or $0, %eax\n\t
-              mov %eax, %cr5\n\t"
+              mov %eax, %cr4\n\t"
              : 
              : "r"(CR4_PGE)
              : "eax")

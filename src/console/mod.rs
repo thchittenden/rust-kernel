@@ -4,7 +4,7 @@
 #![no_std]
 
 #[macro_use] extern crate core;
-#[macro_use] extern crate sync;
+#[macro_use] extern crate mutex;
 
 use console::SAFE_CONSOLE_INIT;
 

@@ -4,21 +4,20 @@
 #![no_std]
 
 #[macro_use] extern crate core;
+extern crate collections;
 extern crate mem;
+
+pub mod thread;
 
 use core::ops::Fn;
 use mem::rawbox::RawBox;
 use mem::virt::PageDirectory;
 
 #[repr(C, packed)]
-struct Task {
+pub struct Task {
  
-    tid: i32,
     cr3: RawBox<PageDirectory>,
 
-    stack_cur: usize, 
-    stack_top: usize,
-    stack_bottom: usize, // This MUST be at offset 0x10
 }
 
 impl Task {

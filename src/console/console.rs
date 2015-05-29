@@ -5,7 +5,7 @@ use core::str::StrExt;
 
 use color::Color;
 
-use sync::mutex::Mutex;
+use mutex::Mutex;
 
 pub struct Console {
     // Console dimensions.

@@ -14,6 +14,7 @@ const PTE_ALIGN: usize = (1 << PT_SHIFT);
 const PDE_ALIGN: usize = (1 << PD_SHIFT);
 pub const PTE_MAPPED_SIZE: usize = (1 << PT_SHIFT);
 pub const PDE_MAPPED_SIZE: usize = (1 << PD_SHIFT);
+pub const PD_RECMAP_ADDR: usize = -PDE_MAPPED_SIZE;
 
 // Converts an address to its page table index.
 fn addr_to_pte (addr: usize) -> usize {
@@ -27,7 +28,6 @@ fn addr_to_pde (addr: usize) -> usize {
 
 bitflags! {
     flags PageDirectoryEntry: u32 {
-        const PDE_EMPTY        = 0x00000000,
         const PDE_PRESENT      = 0x00000001,
         const PDE_WRITABLE     = 0x00000002,
         const PDE_SUPERVISOR   = 0x00000004,
@@ -60,19 +60,21 @@ impl PageDirectoryEntry {
     pub fn remove_pagetable(&mut self) -> RawBox<PageTable> {
         assert!(!self.contains(PDE_4MBREGION));
         let pt_addr: usize = (self.bits & PDE_FRAMEMASK.bits) as usize;
-        self.bits = PDE_EMPTY.bits;
+        self.clear();
         RawBox::from_raw(pt_addr as *mut PageTable)
     }
    
     pub fn borrow_pagetable(&self) -> &PageTable {
         assert!(!self.contains(PDE_4MBREGION));
         let pt_addr: usize = (self.bits & PDE_FRAMEMASK.bits) as usize;
+        assert!(pt_addr != 0);
         unsafe { &*(pt_addr as *mut PageTable) }
     }
     
     pub fn borrow_pagetable_mut(&mut self) -> &mut PageTable {
         assert!(!self.contains(PDE_4MBREGION));
         let pt_addr: usize = (self.bits & PDE_FRAMEMASK.bits) as usize;
+        assert!(pt_addr != 0);
         unsafe { &mut*(pt_addr as *mut PageTable) }
     }
 
@@ -80,7 +82,6 @@ impl PageDirectoryEntry {
 
 bitflags! {
     flags PageTableEntry: u32 {
-        const PTE_EMPTY        = 0x00000000,
         const PTE_PRESENT      = 0x00000001,
         const PTE_WRITABLE     = 0x00000002,
         const PTE_SUPERVISOR   = 0x00000004,
@@ -102,26 +103,27 @@ impl PageTableEntry {
 
     pub fn remove_page(&mut self) -> RawBox<Frame> {
         let frame_addr = (self.bits & PTE_FRAMEMASK.bits) as usize;
-        self.bits = PTE_EMPTY.bits;
+        self.clear();
         Frame::from_addr(frame_addr)
     }
 
     pub fn borrow_frame(&self) -> &Frame {
         let frame_addr = (self.bits & PTE_FRAMEMASK.bits) as usize;
+        assert!(frame_addr != 0);
         unsafe { &*(frame_addr as *mut Frame) }
     }
 
     pub fn borrow_frame_mut(&mut self) -> &mut Frame {
-        let frame_addr = (self.bits & PTE_FRAMEMASK.bits) as usize; 
+        let frame_addr = (self.bits & PTE_FRAMEMASK.bits) as usize;
+        assert!(frame_addr != 0);
         unsafe { &mut*(frame_addr as *mut Frame) }
     }
 
 }
 
 pub struct PageDirectory {
-    pub pdes: [PageDirectoryEntry; 1024] 
+    pdes: [PageDirectoryEntry; 1024] 
 }
-pub const PAGE_DIRECTORY_INIT: PageDirectory = PageDirectory { pdes: [PDE_EMPTY; 1024] };
 
 impl PageDirectory {
     
@@ -133,6 +135,11 @@ impl PageDirectory {
         })
     }
 
+    /// Removes all mappings and marks all entries as not present.
+    ///
+    /// # Safety
+    ///
+    /// This is unsafe because it may leak any page tables that are mapped in.
     pub unsafe fn clear(&mut self) {
         for pde in self.pdes.as_mut() {
             pde.clear()
@@ -168,6 +175,10 @@ impl PageDirectory {
         RawBox::from_raw(self as *mut PageDirectory as *mut PageTable)
     }
 
+    pub fn remove_pte_flags(&mut self, addr: usize, flags: PageTableEntry) {
+        self.pdes[addr_to_pde(addr)].borrow_pagetable_mut().remove_flags(addr, flags);
+    }
+
 }
 
 impl Debug for PageDirectory {
@@ -177,9 +188,8 @@ impl Debug for PageDirectory {
 }
 
 pub struct PageTable {
-    pub ptes: [PageTableEntry; 1024]
+    ptes: [PageTableEntry; 1024]
 }
-pub const PAGE_TABLE_INIT: PageTable = PageTable { ptes: [PTE_EMPTY; 1024] };
 
 impl PageTable {
 
@@ -208,8 +218,19 @@ impl PageTable {
     pub fn has_page(&self, addr: usize) -> bool {
         // Here we are assuming this is the RIGHT page table since we can't 
         // check that the upper bits of the address correspond to this page table.
-        let pte = addr_to_pte(addr);
-        self.ptes[pte].contains(PTE_PRESENT)
+        self.ptes[addr_to_pte(addr)].contains(PTE_PRESENT)
+    }
+
+    pub fn remove_flags(&mut self, addr: usize, flags: PageTableEntry) {
+        assert!(self.has_page(addr));
+        assert!(!flags.intersects(PTE_PRESENT | PTE_FRAMEMASK));
+        self.ptes[addr_to_pte(addr)].remove(flags);
+    }
+
+    pub fn add_flags(&mut self, addr: usize, flags: PageTableEntry) {
+        assert!(self.has_page(addr));
+        assert!(!flags.intersects(PTE_PRESENT | PTE_FRAMEMASK));
+        self.ptes[addr_to_pte(addr)].insert(flags);
     }
 
 }

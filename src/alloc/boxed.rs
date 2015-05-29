@@ -8,7 +8,6 @@ use core::hash::Hash;
 use core::cmp::Ordering;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
-logger_init!(Trace);
 
 //#[unsafe_no_drop_flag]
 pub struct Box<T>(Unique<T>);
@@ -24,7 +23,7 @@ impl<T> Box<T> {
 
 impl <T> Drop for Box<T> {
     fn drop(&mut self) {
-        trace!("dropping 0x{:x}", &mut **self as *mut T as usize);
+        //trace!("dropping 0x{:x}", &mut **self as *mut T as usize);
 
         // Swap a null pointer into the box.
         let mut val = unsafe { Unique::new(ptr::null_mut()) };

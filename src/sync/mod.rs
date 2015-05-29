@@ -3,6 +3,11 @@
 #![feature(no_std,core)]
 #![no_std]
 
-extern crate core;
+#[macro_use] extern crate core;
+#[macro_use] extern crate collections;
+#[macro_use] extern crate mutex;
+#[macro_use] extern crate task;
 
-pub mod mutex;
+#[macro_use] pub mod condvar;
+#[macro_use] pub mod semaphore;
+
