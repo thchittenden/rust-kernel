@@ -11,8 +11,7 @@ def intersect(l1, l2):
 
 def get_extern_crates(fname):
     with open(fname, "r") as f:
-        s = f.read()
-        return re.findall('extern crate (\w*);$', s, re.MULTILINE)
+        return re.findall('extern crate (\w*);$', f.read(), re.MULTILINE)
         
 
 def main():
@@ -26,8 +25,6 @@ def main():
     for extcrate in extcrates:
         print('%s/lib%s.rlib' % (objdir, extcrate)),
     print ''
-
-
 
 if __name__ == '__main__':
     main()
