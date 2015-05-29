@@ -2,6 +2,10 @@
 #![crate_type="rlib"]
 #![feature(no_std,core)]
 #![no_std]
+//!
+//! This module is the entry point of the kernel. It is responsible for initializing all other
+//! modules and beginning the first task.
+//!
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
@@ -14,9 +18,9 @@ use core::mem::drop;
 use alloc::boxed::Box;
 use util::multiboot::MultibootHeader;
 use mem::phys;
-
 logger_init!(Trace);
 
+/// The kernel entry point. This should never return.
 #[no_mangle]
 pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
     

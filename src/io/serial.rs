@@ -1,3 +1,6 @@
+//!
+//! This module contains definitions for interacting with the serial ports.
+//!
 use core::prelude::*;
 use core::fmt::{Write, Arguments, Error};
 use mutex::Mutex;
@@ -50,29 +53,35 @@ bitflags! {
     }
 }
 
+/// A serial port.
 pub struct SerialPort {
     base: u16,
     baud: u32,
     lcr: LCR,
 }
 
+/// A thread-safe serial port.
 pub struct SafeSerialPort {
     sp: Mutex<SerialPort>
 }
 
 impl SerialPort {
-    
+
+    /// Creates a new serial port at the given I/O address with the given baud and control flags.
     pub fn new(base: u16, baud: u32, lcr: LCR) -> SerialPort {
         let mut sp = SerialPort { base: base, baud: baud, lcr: lcr };
         sp.configure(baud, lcr); 
         sp
     }
 
+    /// Configures the serial port at a new baud/control configuration.
     pub fn configure(&mut self, baud: u32, lcr: LCR) {
         self.set_lcr(lcr);
         self.set_baud(baud);
     }
 
+    /// Writes a character to the serial port. This currently blocks until the transmit buffer is
+    /// empty. It would be better to maintain an internal buffer that is interrupt-driven.
     pub fn putc(&self, c: char) {
         while !self.get_lsr().contains(THR_EMPTY) { 
             // Spin. TODO fix this when we have interrupts.
@@ -80,6 +89,9 @@ impl SerialPort {
         asm::outb8(self.base + DATA_OFFSET, c as u8);
     }
 
+    /// Retrieves a character from the serial port. This currently blocks until the receive buffer
+    /// is non-empty. This is completely unsafe and needs to be implemented using interrupts as it
+    /// is far too easy to miss a character currently.
     pub fn getc(&self) -> char {
         while !self.get_lsr().contains(DATA_AVAILABLE) {
             // Spin. TODO fix this when we have interrupts.
@@ -123,6 +135,7 @@ impl SerialPort {
 
 impl Write for SerialPort {
 
+    /// Writes a string to the serial port.
     fn write_str(&mut self, s: &str) -> Result<(), Error> {
         for c in s.chars() {
             self.putc(c)
@@ -134,15 +147,18 @@ impl Write for SerialPort {
 
 impl SafeSerialPort {
 
+    /// Constructs a new thread-safe serial port.
     pub fn new(base: u16, baud: u32, lcr: LCR) -> SafeSerialPort {
         SafeSerialPort { sp: static_mutex!(SerialPort::new(base, baud, lcr)) }
     }
 
+    /// Atomically writes a string to the serial port.
     pub fn write_str(&self, s: &str) -> Result<(), Error> {
         let mut sp = self.sp.lock().unwrap();
         sp.write_str(s)
     }
 
+    /// Atomically writes a format string to the serial port.
     pub fn write_fmt(&self, args: Arguments) -> Result<(), Error> {
         let mut sp = self.sp.lock().unwrap();
         sp.write_fmt(args)

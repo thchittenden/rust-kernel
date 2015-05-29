@@ -1,5 +1,11 @@
-// Kernel raw-box implementation. This represents a unique value that is not 
-// allocated on the heap.
+//!
+//! A pointer type for non-heap allocations. 
+//!
+//! Raw boxes are manually managed owned pointers. They are used for any allocation that is not
+//! performed on the heap. This includes physical memory frames.  Because these boxes are not
+//! managed it is possible they can be leaked. It is vital that all users of RawBoxes must be
+//! careful not to leak them!
+//!
 use core::prelude::*;
 use core::ptr::Unique;
 use core::hash;
@@ -8,20 +14,43 @@ use core::cmp::Ordering;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
 
+/// An owned pointer.
 pub struct RawBox<T>(Unique<T>);
 
 impl<T> RawBox<T> {
-    
-    pub fn from_raw(addr: *mut T) -> RawBox<T> {
-        unsafe { RawBox(Unique::new(addr)) }
+   
+    /// Constructs an owned pointer from a unique memory address.
+    pub fn from_uniq(addr: Unique<T>) -> RawBox<T> {
+        RawBox(addr) 
     }
 
-    pub fn to_raw(mut self) -> *mut T {
-        unsafe { self.0.get_mut() as *mut T }    
+    /// Constructs an owned pointer from a memory address.
+    /// 
+    /// # Safety
+    ///
+    /// This is unsafe because the caller must ensure that the address is in fact unique.
+    pub unsafe fn from_raw(addr: *mut T) -> RawBox<T> {
+        RawBox(Unique::new(addr))
     }
 
+    /// Converts an owned pointer into a unique pointer.
+    pub fn into_uniq(self) -> Unique<T> {
+        self.0
+    }
+
+    /// Converts an owned pointer into a memory address.
+    pub fn into_raw(mut self) -> *mut T {
+        unsafe { self.0.get_mut() as *mut T }
+    }
+
+    /// Borrows the contents of the box.
     pub fn borrow(&self) -> &T {
         unsafe { self.0.get() }
+    }
+
+    /// Mutably borrows the contents of the box.
+    pub fn borrow_mut(&mut self) -> &mut T {
+        unsafe { self.0.get_mut() }
     }
 
 }

@@ -2,6 +2,9 @@
 #![crate_type="rlib"]
 #![feature(no_std,core,step_by,unique,negate_unsigned)]
 #![no_std]
+//!
+//! This module contains definitions for interacting with physical/virtual memory.
+//! 
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
@@ -30,7 +33,11 @@ logger_init!(Trace);
 // The kernel page directory. This is the default page directory used by new tasks. 
 static kpd: Global<RawBox<PageDirectory>> = global_init!();
 
-
+/// Initializes all memory related submodules. 
+///
+/// This uses the `MultibootHeader` to populate the free frame list with all free physical frames.
+/// It then uses 5 frames to direct map the first 16 MB of the address space, which is reserved for
+/// the kernel. Finally, it enables paging.
 pub fn init(hdr: &MultibootHeader) {
     phys::init();
     virt::init();
@@ -43,11 +50,11 @@ pub fn init(hdr: &MultibootHeader) {
 
 fn direct_map_kernel() {
     trace!("direct mapping kernel");
-    let mut pd = PageDirectory::new().unwrap();
-    let pt0 = PageTable::new().unwrap();
-    let pt1 = PageTable::new().unwrap();
-    let pt2 = PageTable::new().unwrap();
-    let pt3 = PageTable::new().unwrap();
+    let mut pd = PageDirectory::new().expect("unable to allocate global page directory");
+    let pt0 = PageTable::new().expect("unable to allocate global page table 1");
+    let pt1 = PageTable::new().expect("unable to allocate global page table 2");
+    let pt2 = PageTable::new().expect("unable to allocate global page table 3");
+    let pt3 = PageTable::new().expect("unable to allocate global page table 4");
     trace!("pd: {:?}", pd);
     trace!("pt0: {:?}", pt0);
     trace!("pt1: {:?}", pt1);
@@ -68,18 +75,22 @@ fn direct_map_kernel() {
     pd.map_pagetable(2*PDE_MAPPED_SIZE, pt2, pdflags);
     pd.map_pagetable(3*PDE_MAPPED_SIZE, pt3, pdflags);
 
-    // Map in the kernel.
+    // Map in the kernel. We know constructing the page_box variable is safe because we only map
+    // the kernel in once.
     let ptflags = PTE_SUPERVISOR | PTE_WRITABLE | PTE_GLOBAL;
     let kernel_start = linker_sym!(__kernel_start);
     let kernel_end = linker_sym!(__kernel_end);
     for page in (kernel_start..kernel_end).step_by(PAGE_SIZE) {
         assert!(pd.has_pagetable(page));
-        pd.map_page(page, RawBox::from_raw(page as *mut Frame), ptflags);
+        let page_box = unsafe { RawBox::from_raw(page as *mut Frame) };
+        pd.map_page(page, page_box, ptflags);
     }
 
-    // Map in video memory.
+    // Map in video memory. We know constructing the vmem_box variable is safe because we only map
+    // in video memory once.
     let vmem: usize = 0xB8000;
-    pd.map_page(vmem, RawBox::from_raw(vmem as *mut Frame), ptflags);
+    let vmem_box = unsafe { RawBox::from_raw(vmem as *mut Frame) };
+    pd.map_page(vmem, vmem_box, ptflags);
 
     // Mark code/rodata as readonly to prevent a few bugs.
     let ro_start = linker_sym!(__ro_start);

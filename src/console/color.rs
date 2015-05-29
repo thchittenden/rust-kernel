@@ -1,3 +1,4 @@
+/// The 16 possible colors for foreground and background console colors.
 #[derive(Copy, Clone)]
 pub enum Color {
     Black        = 0,

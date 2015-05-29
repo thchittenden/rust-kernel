@@ -1,3 +1,10 @@
+//!
+//! This module contains the definition of the `Node` object used by all collections.
+//!
+//! This `Node` owns the pointer to the next object thus objects can only be in one queue at a
+//! time. This is additionally constrained by the fact that HasNode can only return a single Node
+//! which further enforces being in only a single queue. 
+//!
 use alloc::boxed::Box;
 
 pub trait HasNode<T> {

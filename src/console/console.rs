@@ -1,3 +1,10 @@
+//!
+//! This module contains the definition of the `Console` and `SafeConsole` objects which permit
+//! interaction with the VGA memory area located at `0xB8000`. 
+//!
+//! This console supports a 80x25 screen area and 16 different colors for both the background and
+//! foreground.
+//!
 use core::fmt::{Write, Error, Arguments};
 use core::result::Result;
 use core::result::Result::Ok;
@@ -7,6 +14,7 @@ use color::Color;
 
 use mutex::Mutex;
 
+/// A VGA console.
 pub struct Console {
     // Console dimensions.
     rows: isize,
@@ -34,6 +42,7 @@ pub const CONSOLE_INIT: Console = Console {
     base: 0xB8000 as *mut u16 ,
 };
 
+/// A thread-safe VGA console.
 pub struct SafeConsole {
     con: Mutex<Console>
 }
@@ -44,10 +53,12 @@ pub const SAFE_CONSOLE_INIT: SafeConsole = SafeConsole {
 
 impl Console {
 
+    /// Creates a new VGA console.
     pub fn new() -> Console {
         CONSOLE_INIT
     }
 
+    /// Clears the console to black and resets the cursor position to (0,0).
     pub fn clear(&mut self) {
         self.col = 0;
         self.row = 0;
@@ -56,11 +67,14 @@ impl Console {
         }
     }
 
+    /// Sets the foreground and background colors of the console.
     pub fn set_color(&mut self, fg: Color, bg: Color) {
         self.color_fg = fg;
         self.color_bg = bg;
     }
     
+    /// Puts a character at the current cursor position and moves the cursor depending on the
+    /// character. New-lines, carriage-returns and tabs are all supported for moving the cursor.
     pub fn putc(&mut self, c: char) {
         assert!(self.row < self.rows); 
         assert!(self.col < self.cols);

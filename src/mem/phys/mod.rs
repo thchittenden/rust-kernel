@@ -1,4 +1,5 @@
 use core::prelude::*;
+use core::ptr::Unique;
 use core::mem;
 use core::fmt;
 use core::fmt::{Debug, Formatter};
@@ -9,13 +10,19 @@ logger_init!(Trace);
 
 static FREE_FRAME_LIST: Mutex<Option<RawBox<Frame>>> = static_mutex!(None);
 
+/// A frame available for allocation.
 pub struct Frame {
     next: Option<RawBox<Frame>>
 }
 
 impl Frame {
-    // Creates and initializes a free frame from a memory address.
-    pub fn from_addr(addr: usize) -> RawBox<Frame> {
+
+    /// Creates and initializes a free frame from a unique memory address.
+    ///
+    /// # Safety
+    ///
+    /// This is unsafe because the caller must guarantee that address is actually unique.
+    pub unsafe fn from_addr(addr: usize) -> RawBox<Frame> {
         assert!(is_page_aligned(addr));
         let mut frame = RawBox::from_raw(addr as *mut Frame);
         frame.next = None;
@@ -30,17 +37,20 @@ impl Debug for Frame {
 }
 
 impl RawBox<Frame> {
-    // Convert a frame to an appropriate type.
+    /// Convert a frame into any type that will fit in that frame.
     pub fn allocate<T>(self) -> RawBox<T> {
         assert!(mem::size_of::<T>() <= PAGE_SIZE);
-        RawBox::from_raw(self.to_raw() as *mut T)
+        unsafe { RawBox::from_raw(self.into_raw() as *mut T) }
     }
 
-    pub fn to_addr(self) -> usize {
-        self.to_raw() as usize
+    /// Consumes an owned box and returns the underlying pointer.
+    pub fn into_addr(self) -> usize {
+        self.into_raw() as usize
     }
 }
 
+/// Adds a range of physical memory to the free frame list. This assumes that these ranges do not
+/// overlap any ranges already added to the free frame list.
 pub fn add_range(start: usize, end: usize) {
     assert!(is_page_aligned(start));
     assert!(is_page_aligned(end));
@@ -52,13 +62,19 @@ pub fn add_range(start: usize, end: usize) {
         // check probably does not belong here.
         if frame_addr == 0 { continue }
         
-        // Add the frame to the free frame list.
-        let mut frame = Frame::from_addr(frame_addr);
+        // Add the frame to the free frame list. We know this is safe because we assume that this
+        // range does not overlap any ranges already added to the free frame list.
+        let mut frame = unsafe { Frame::from_addr(frame_addr) };
         frame.next = head.take();
         *head = Some(frame);
     }
 }
 
+/// Tries to allocate a free frame. 
+///
+/// # Failures
+///
+/// Returns `None` if the free frame list is empty.
 pub fn get_frame() -> Option<RawBox<Frame>> {
     let mut head = FREE_FRAME_LIST.lock().unwrap();
     head.take().and_then(|mut frame| {
@@ -68,6 +84,7 @@ pub fn get_frame() -> Option<RawBox<Frame>> {
     })
 }
 
+/// Returns a frame to the free frame list.
 pub fn return_frame(mut frame: RawBox<Frame>) {
     assert!(is_page_aligned(&*frame as *const Frame as usize));
     let mut head = FREE_FRAME_LIST.lock().unwrap();
