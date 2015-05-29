@@ -8,6 +8,7 @@
 extern crate console;
 extern crate mem;
 extern crate alloc;
+extern crate io;
 
 use core::mem::drop;
 use alloc::boxed::Box;
@@ -18,7 +19,10 @@ logger_init!(Trace);
 
 #[no_mangle]
 pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
-    trace!("hello from a brand new kernel");
+    
+    // Initialize IO (serial ports, etc.) This must be performed first as all logging
+    // functions may go to COM1.
+    io::init();
 
     // Initialize the allocator.
     alloc::init();

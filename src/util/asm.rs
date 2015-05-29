@@ -40,3 +40,27 @@ pub fn enable_global_pages() {
              : "eax")
     }
 }
+
+pub fn outb8(addr: u16, val: u8) {
+    unsafe { 
+        asm!("mov $0, %dx\n\t
+              mov $1, %al\n\t
+              outb %al, %dx\n\t"
+            : 
+            : "r"(addr), "r"(val)
+            : "eax", "edx")
+    }
+}
+
+pub fn inb8(addr: u16) -> u8 {
+    let mut res: u8;
+    unsafe {
+        asm!("mov $1, %dx\n\t
+              inb %dx, %al\n\t
+              mov %al, $0\n\t"
+            : "=r"(res)
+            : "r"(addr)
+            : "eax", "edx")
+    }
+    res
+}

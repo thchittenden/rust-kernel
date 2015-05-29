@@ -6,7 +6,7 @@
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
 #[macro_use] extern crate mutex;
-extern crate console;
+extern crate io;
 logger_init!(Trace);
 
 pub mod boxed;

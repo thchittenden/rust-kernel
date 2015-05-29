@@ -11,7 +11,7 @@ TARGETSPEC := target
 LINKERSCRIPT := linker.ld
 
 # Module config. This order is important (and fragile!)
-CRATES := mutex console util alloc collections task sched sync mem rt boot
+CRATES := mutex console util alloc collections io mem task sched sync rt boot
 
 # Program config.
 AS := gcc

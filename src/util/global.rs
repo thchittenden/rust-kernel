@@ -8,7 +8,7 @@ pub struct Global<T> {
 #[macro_export]
 macro_rules! global_init {
     () => ({ 
-        use core::cell::UnsafeCell;
+        use core::option::Option::None;
         Global { elem: None } 
     });
 }
@@ -18,8 +18,8 @@ impl<T> Global<T> {
     pub fn init(&self, elem: T) {
         unsafe { 
             // Subverting the mutability of the global for initial assignment.
-            let ptr: *mut T = mem::transmute(&self.elem);
-            *ptr = elem;
+            let ptr: *mut Option<T> = mem::transmute(&self.elem);
+            *ptr = Some(elem);
         }
     }
 

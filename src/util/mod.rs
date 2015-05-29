@@ -59,3 +59,4 @@ pub fn align_bits(mut alignment: usize) -> usize {
 pub fn is_pow2(val: usize) -> bool {
     val & (val - 1) == 0
 }
+
