@@ -15,15 +15,16 @@ extern crate alloc;
 extern crate io;
 
 use core::mem::drop;
+use console::CON;
 use alloc::boxed::Box;
 use util::multiboot::MultibootHeader;
-use mem::phys;
 logger_init!(Trace);
 
 /// The kernel entry point. This should never return.
 #[no_mangle]
 pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
-    
+    println!(CON, "Booting kernel...");
+
     // Initialize IO (serial ports, etc.) This must be performed first as all logging
     // functions may go to COM1.
     io::init();

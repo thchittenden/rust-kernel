@@ -103,7 +103,7 @@ impl Allocator for LMMAllocator {
     }
 
     fn deallocate_raw(&mut self, addr: usize, size: usize) {
-        trace!("freeing {} bytes at {:x}", size, addr);
+        trace!("freeing {} bytes at 0x{:x}", size, addr);
         unsafe { lmm_free(&mut self.lmm, addr, size) }
     }
 

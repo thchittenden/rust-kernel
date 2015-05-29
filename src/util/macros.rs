@@ -1,41 +1,36 @@
+/// Prints a format string to a device.
 #[macro_export]
 macro_rules! print {
-    (($arg:tt)*) => ({
+    ($dst:expr, ($arg:tt)*) => ({
         use core::fmt::Write;
-        use io;
-        let _ = write!(io::COM1, $($arg)*);
+        let _ = write!($dst, $($arg)*);
     });
 }
 
+/// Prints a format string line to a device.
 #[macro_export]
 macro_rules! println {
-    () => ({
+    ($dst:expr) => ({
         use core::fmt::Write;
-        use io;
-        let _ = write!(io::COM1, "\n");
+        let _ = write!($dst, "\n");
     });
-    ($fmt:expr) => ({
+    ($dst:expr, $fmt:expr) => ({
         use core::fmt::Write;
-        use io;
-        let _ = write!(io::COM1, concat!($fmt, "\n"));
+        let _ = write!($dst, concat!($fmt, "\n"));
     });
-    ($fmt:expr, $($arg:tt)*) => ({
+    ($dst:expr, $fmt:expr, $($arg:tt)*) => ({
         use core::fmt::Write;
-        use io;
-        let _ = write!(io::COM1, concat!($fmt, "\n"), $($arg)*);
+        let _ = write!($dst, concat!($fmt, "\n"), $($arg)*);
     });
 }
 
+/// Returns the value of a linker symbol. We use a macro to ensure that we always use the ADDRESS
+/// of the symbol and not the VALUE of the symbol because that is how linker symbols work!
 #[macro_export]
 macro_rules! linker_sym {
     ($sym:ident) => ({ 
-        use core::mem::transmute;
         extern { static $sym: (); }; 
-        unsafe { transmute(&$sym) } // have to take address here because linker symbol!
+        &$sym as *const () as usize 
     });
 }
 
-#[macro_export]
-macro_rules! unimplemented {
-    () => ( panic!("PANIC: unimplemented!") );
-}

@@ -11,6 +11,10 @@ DOCDIR := doc
 TARGETSPEC := target
 LINKERSCRIPT := linker.ld
 
+# Build config.
+LOG_LEVEL  := trace
+LOG_DEVICE := serial
+
 # Module config. This order is important (and fragile!)
 CRATES := mutex console util io alloc collections mem task sched sync rt boot
 
@@ -22,7 +26,7 @@ LDFLAGS := -melf_i386 -T $(LINKERSCRIPT) -static --gc-sections
 CC := gcc
 CCFLAGS := -m32 -c -ggdb -I$(INCDIR) 
 RUSTC := rustc
-RUSTCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g
+RUSTCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g --cfg 'LOG_DEVICE="$(LOG_DEVICE)"' --cfg 'LOG_LEVEL="$(LOG_LEVEL)"'
 RUSTDOC := rustdoc
 RUSTDOCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC)
 
