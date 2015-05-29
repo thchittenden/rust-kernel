@@ -1,5 +1,10 @@
-// This is a naive allocator that is very good at allocating and very bad at 
-// deallocating.
+//!
+//! An interface to the List-based Memory Manager. This is not a particularly GOOD allocator but it
+//! is specialized at working in a kernel environment where we can't just invoke sbrk to get more
+//! heap space. 
+//!
+//! More information can be found here: http://www.cs.utah.edu/flux/oskit/html/oskit-wwwch25.html
+//!
 use core::prelude::*;
 use core::ptr::Unique;
 use core::mem;

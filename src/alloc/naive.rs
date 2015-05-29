@@ -1,5 +1,8 @@
-// This is a naive allocator that is very good at allocating and very bad at 
-// deallocating.
+//! 
+//! This module contains a naive allocator that is very good at allocations and not so good at
+//! deallocations. This is primarily used for testing when we want an allocator that is probably
+//! not the source of the problem.
+//!
 use core::prelude::*;
 use core::ptr::Unique;
 use core::mem;
@@ -7,6 +10,8 @@ use Allocator;
 use util::align_up;
 logger_init!(Trace);
 
+/// A naive allocator that always allocates at the next lowest address on the heap. When the heap
+/// pointer reaches the end of the heap, all further allocations fail.
 pub struct NaiveAllocator {
     heap_start: usize,
     heap_end: usize,

@@ -7,11 +7,12 @@ LIBDIR := lib
 BINDIR := bin
 IMGDIR := img
 INCDIR := inc
+DOCDIR := doc
 TARGETSPEC := target
 LINKERSCRIPT := linker.ld
 
 # Module config. This order is important (and fragile!)
-CRATES := mutex console util alloc collections io mem task sched sync rt boot
+CRATES := mutex console util io alloc collections mem task sched sync rt boot
 
 # Program config.
 AS := gcc
@@ -22,6 +23,8 @@ CC := gcc
 CCFLAGS := -m32 -c -ggdb -I$(INCDIR) 
 RUSTC := rustc
 RUSTCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g
+RUSTDOC := rustdoc
+RUSTDOCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC)
 
 # Utility functions.
 reverse = $(if $(1),$(call reverse,$(wordlist 2,$(words $(1)),$(1)))) $(firstword $(1))
@@ -71,16 +74,21 @@ $(BINDIR)/$(TARGET).iso: $(BINDIR)/$(TARGET)
 # Misc target.
 image: $(BINDIR)/$(TARGET).iso
 
+doc: $(addprefix doc-, $(CRATES))
+doc-%: $(SRCDIR)/%/mod.rs $(DEPDIR)/%.d
+	$(RUSTDOC) $(RUSTDOCFLAGS) -o $(DOCDIR) $<
+
 clean: 
 	rm -Rf $(BINDIR)
 	rm -Rf $(OBJDIR)
 	rm -Rf $(DEPDIR)
+	rm -Rf $(DOCDIR)
 	rm -f $(IMGDIR)/boot/$(TARGET)
 
 # Debug target.
 print-%:
 	@echo '$*=$($*)' 
 
-.PHONY: all image clean
+.PHONY: all image clean doc
 .SECONDARY:
 

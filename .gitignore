@@ -1,5 +1,6 @@
 bin/
 obj/
 dep/
+doc/
 img/boot/kernel
 *.swp
