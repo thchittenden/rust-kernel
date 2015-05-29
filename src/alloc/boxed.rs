@@ -1,4 +1,8 @@
-// Kernel box implementation. This was heavily lifted from the std library's Box.
+//! Kernel box implementation. This was heavily lifted from the std library's Box.
+//!
+//! An important difference between the std library Box and this box is that we must gracefully
+//! handle failure conditions. Thus when constructing Boxes we must return an Option in case the
+//! allocation fails.s 
 use core::prelude::*;
 use core::ptr;
 use core::ptr::Unique;
@@ -8,26 +12,37 @@ use core::hash::Hash;
 use core::cmp::Ordering;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
+logger_init!(Trace);
 
-//#[unsafe_no_drop_flag]
+/// A pointer type for heap allocations.
 pub struct Box<T>(Unique<T>);
 
 impl<T> Box<T> {
+    
+    /// Allocates memory on the heap and then moves `x` into it.
     pub fn new (x: T) -> Option<Box<T>> {
         ::allocate(x).map(Box)
     }
+
+    /// Allocates aligned memory on the heap and then moves `x` into it.
     pub fn new_aligned(x: T, align: usize) -> Option<Box<T>> {
         ::allocate_aligned(x, align).map(Box)
     }
 }
 
 impl <T> Drop for Box<T> {
+    /// Deallocates the pointer on the heap. We must pay special attention
+    /// that we manually drop the contents of the box, otherwise they may
+    /// be lost forever.
     fn drop(&mut self) {
-        //trace!("dropping 0x{:x}", &mut **self as *mut T as usize);
+        trace!("dropping 0x{:x}", &mut **self as *mut T as usize);
 
         // Swap a null pointer into the box.
         let mut val = unsafe { Unique::new(ptr::null_mut()) };
         mem::swap(&mut self.0, &mut val);
+
+        // Manually drop the contents of the box.
+        unsafe { drop(ptr::read(val.get_mut() as *mut T)) };
 
         // If we get a non-null pointer back, then we are the first 
         // call to the destructor so we should deallocate the pointer.

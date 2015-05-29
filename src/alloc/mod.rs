@@ -40,13 +40,9 @@ trait Allocator {
         self.allocate_aligned(elem, min_align_of::<T>())
     }
 
-    // Drops the contents of the box and deallocates its memory. I'm not sure
-    // the semantics of ptr::read, but if it reads the contents of the pointer
-    // onto the stack, this is probably suboptimal.
     fn deallocate<T>(&mut self, mut elem: Unique<T>) {
         let addr = unsafe { elem.get_mut() } as *mut T as usize;
         let size = mem::size_of::<T>();
-        unsafe { drop(ptr::read(elem.get_mut() as *mut T)) };
         self.deallocate_raw(addr, size);
     }
 

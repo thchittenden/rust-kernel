@@ -77,6 +77,10 @@ fn direct_map_kernel() {
         pd.map_page(page, RawBox::from_raw(page as *mut Frame), ptflags);
     }
 
+    // Map in video memory.
+    let vmem: usize = 0xB8000;
+    pd.map_page(vmem, RawBox::from_raw(vmem as *mut Frame), ptflags);
+
     // Mark code/rodata as readonly to prevent a few bugs.
     let ro_start = linker_sym!(__ro_start);
     let ro_end = linker_sym!(__ro_end);

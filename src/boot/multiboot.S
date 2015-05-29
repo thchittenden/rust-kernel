@@ -146,7 +146,6 @@ _start:
     shrl $16, %ebx
     orl %ebx, 4(%eax)
     
-#if 1 
     # Initialize double fault handler.
     leal _idt, %eax       
     leal 0x40(%eax), %eax
@@ -160,7 +159,6 @@ _start:
     andl $0xFFFF0000, %ebx 
     orl  $0x00008E00, %ebx
     movl %ebx, 4(%eax) 
-#endif
 
     # Load the GDT, IDT, and TSS. 
     lgdt _gdt_header
@@ -221,6 +219,9 @@ _df_handler:
     movw %ax, %fs
     movw %ax, %gs
     movw %ax, %ss
+    movl %cr0, %eax
+    andl $0x7fffffff, %eax
+    movl %eax, %cr0
     
     # Use the exception stack so that we preserve the main stack.
     leal _exception_stack_top, %esp
