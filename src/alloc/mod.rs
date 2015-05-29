@@ -83,7 +83,7 @@ static ALLOCATOR: Mutex<LMMAllocator> = static_mutex!(LMM_ALLOCATOR_INIT);
 pub fn init() {
     let heap_start = linker_sym!(__heap_start);
     let heap_end = linker_sym!(__heap_end);
-    ALLOCATOR.lock().unwrap().init(heap_start, heap_end);
+    ALLOCATOR.lock().init(heap_start, heap_end);
 }
 
 /// Tries to allocate an object to the heap and returns a unique pointer to it.
@@ -92,7 +92,7 @@ pub fn init() {
 ///
 /// Fails if the heap cannot find a slot big enough to accomodate the requested object.
 pub extern fn allocate<T>(elem: T) -> Option<Unique<T>> {
-    ALLOCATOR.lock().unwrap().allocate(elem)
+    ALLOCATOR.lock().allocate(elem)
 }
 
 /// Tries to allocate an object to an aligned slot on the heap and returns a unique pointer to it.
@@ -101,11 +101,11 @@ pub extern fn allocate<T>(elem: T) -> Option<Unique<T>> {
 ///
 /// Fails if the heap cannot find a slot big enough to accomodate the requested object.
 pub extern fn allocate_aligned<T>(elem: T, align: usize) -> Option<Unique<T>> {
-    ALLOCATOR.lock().unwrap().allocate_aligned(elem, align)
+    ALLOCATOR.lock().allocate_aligned(elem, align)
 }
 
 /// Frees an object on the heap. If this object implements Drop, its destructor WILL NOT BE CALLED.
 /// This is up to the caller of deallocate to perform. TODO This may want to be changed.
 pub extern fn deallocate<T>(elem: Unique<T>) {
-    ALLOCATOR.lock().unwrap().deallocate(elem)
+    ALLOCATOR.lock().deallocate(elem)
 }

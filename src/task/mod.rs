@@ -2,11 +2,15 @@
 #![crate_type="rlib"]
 #![feature(no_std,core)]
 #![no_std]
+//!
+//! This module contains definitions of task and thread structures.
+//!
 
 #[macro_use] extern crate core;
 extern crate collections;
 extern crate mem;
 
+/// Thread related structures.
 pub mod thread;
 
 use core::ops::Fn;

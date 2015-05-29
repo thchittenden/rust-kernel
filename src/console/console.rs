@@ -121,12 +121,12 @@ impl Write for Console {
 impl SafeConsole {
     
     pub fn write_str(&self, s: &str) -> Result<(), Error> {
-        let mut con = self.con.lock().unwrap();
+        let mut con = self.con.lock();
         con.write_str(s)
     }
 
     pub fn write_fmt(&self, args: Arguments) -> Result<(), Error> {
-        let mut con = self.con.lock().unwrap();
+        let mut con = self.con.lock();
         con.write_fmt(args)
     }
 

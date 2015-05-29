@@ -56,7 +56,7 @@ pub fn add_range(start: usize, end: usize) {
     assert!(is_page_aligned(end));
     trace!("adding range: {:x}-{:x}", start, end);
 
-    let mut head = FREE_FRAME_LIST.lock().unwrap();
+    let mut head = FREE_FRAME_LIST.lock();
     for frame_addr in (start..end).step_by(PAGE_SIZE) {
         // Filter out the zero frame because a frame with address 0 is "not present". This
         // check probably does not belong here.
@@ -76,7 +76,7 @@ pub fn add_range(start: usize, end: usize) {
 ///
 /// Returns `None` if the free frame list is empty.
 pub fn get_frame() -> Option<RawBox<Frame>> {
-    let mut head = FREE_FRAME_LIST.lock().unwrap();
+    let mut head = FREE_FRAME_LIST.lock();
     head.take().and_then(|mut frame| {
         assert!(is_page_aligned(&*frame as *const Frame as usize));
         *head = frame.next.take();
@@ -87,7 +87,7 @@ pub fn get_frame() -> Option<RawBox<Frame>> {
 /// Returns a frame to the free frame list.
 pub fn return_frame(mut frame: RawBox<Frame>) {
     assert!(is_page_aligned(&*frame as *const Frame as usize));
-    let mut head = FREE_FRAME_LIST.lock().unwrap();
+    let mut head = FREE_FRAME_LIST.lock();
     frame.next = head.take();
     *head = Some(frame);
 }

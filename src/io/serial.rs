@@ -154,13 +154,13 @@ impl SafeSerialPort {
 
     /// Atomically writes a string to the serial port.
     pub fn write_str(&self, s: &str) -> Result<(), Error> {
-        let mut sp = self.sp.lock().unwrap();
+        let mut sp = self.sp.lock();
         sp.write_str(s)
     }
 
     /// Atomically writes a format string to the serial port.
     pub fn write_fmt(&self, args: Arguments) -> Result<(), Error> {
-        let mut sp = self.sp.lock().unwrap();
+        let mut sp = self.sp.lock();
         sp.write_fmt(args)
     }
 

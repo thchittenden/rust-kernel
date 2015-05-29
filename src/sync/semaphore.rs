@@ -44,7 +44,7 @@ impl<T> Semaphore<T> {
     }
 
     pub fn acquire(&self) -> Option<SemaphoreGuard<T>> {
-        let mut data = self.semint.lock().unwrap();
+        let mut data = self.semint.lock();
         while data.count <= 0 {
             self.cv.wait(&data);
         }
