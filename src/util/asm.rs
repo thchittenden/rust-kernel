@@ -3,6 +3,31 @@ const CR0_PG: u32 = 1 << 31;
 const CR4_PSE: u32 = 1 << 4;
 const CR4_PGE: u32 = 1 << 7;
 
+const IF_FLAG: u32 = 1 << 9;
+
+pub fn get_eflags() -> u32 {
+    let mut eflags: u32;
+    unsafe { asm! ("pushf\n\t
+                    pop %eax\n\t
+                    mov %eax, $0\n\t"
+                   : "=r"(eflags)
+                   :
+                   : "eax")
+    }
+    eflags
+}
+
+pub fn interrupts_enabled() -> bool {
+    get_eflags() & IF_FLAG != 0
+}
+
+pub fn enable_interrupts() {
+    unsafe { asm!("sti") }
+}
+
+pub fn disable_interrupts() {
+    unsafe { asm!("cli") }
+}
 
 pub fn set_cr3(cr3: usize) {
     unsafe { asm!("mov $0, %cr3" :: "r"(cr3)) }

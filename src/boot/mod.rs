@@ -13,11 +13,13 @@ extern crate console;
 extern crate mem;
 extern crate alloc;
 extern crate io;
+extern crate interrupt;
 
 use core::mem::drop;
 use console::CON;
 use alloc::boxed::Box;
 use util::multiboot::MultibootHeader;
+use util::asm;
 logger_init!(Trace);
 
 /// The kernel entry point. This should never return.
@@ -32,6 +34,10 @@ pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
     // Initialize the allocator.
     alloc::init();
 
+    // Initialize the interrupt subsystem.
+    interrupt::init();
+    interrupt::set_isr(32, &timer_interrupt);
+
     // Initialize physical memory with all valid memory regions.
     mem::init(hdr);
     
@@ -40,7 +46,12 @@ pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
     trace!("y: {:?}", y);
     drop(y);
 
+    asm::enable_interrupts();
+
     // Don't return.
     loop { }
 }
 
+fn timer_interrupt(id: u8, regs: &mut interrupt::Regs, iret: &mut interrupt::IRet) {
+    trace!("timer interrupt");
+}

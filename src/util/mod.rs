@@ -13,8 +13,19 @@ pub mod logger;
 pub mod macros;
 pub mod multiboot;
 
+pub const NULL_SEGMENT: u16 = 0x0000;
+pub const KERNEL_CODE_SEGMENT: u16 = 0x0008;
+pub const KERNEL_DATA_SEGMENT: u16 = 0x0010;
+pub const USER_CODE_SEGMENT: u16 = 0x0018;
+pub const USER_DATA_SEGMENT: u16 = 0x0020;
+
 pub const PAGE_SIZE: usize = 0x1000;
 pub const PAGE_SHIFT: usize = 12;
+
+#[macro_export]
+macro_rules! getbyte {
+    ($val:expr, $byte:expr) => { ($val >> (8 * $byte)) as u8 };
+}
 
 #[inline]
 pub fn is_page_aligned(addr: usize) -> bool {

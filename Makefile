@@ -16,7 +16,7 @@ LOG_LEVEL  := trace
 LOG_DEVICE := serial
 
 # Module config. This order is important (and fragile!)
-CRATES := mutex console util io alloc collections mem task sched sync rt boot
+CRATES := mutex console util io alloc collections mem task sched sync rt interrupt boot
 
 # Program config.
 AS := gcc
@@ -41,7 +41,7 @@ ASM_SRCS := $(shell find $(SRCDIR) -name '*.S')
 ASM_OBJS := $(call objectify,$(ASM_SRCS),S,o)
 C_SRCS := $(shell find $(SRCDIR) -name '*.c')
 C_OBJS := $(call objectify,$(C_SRCS),c,o)
-OBJ_FILES := $(RUST_OBJS) $(C_OBJS) $(ASM_OBJS)
+OBJ_FILES := $(ASM_OBJS) $(C_OBJS) $(RUST_OBJS)
 
 all: image
 
