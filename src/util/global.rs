@@ -1,26 +1,26 @@
 use core::prelude::*;
-use core::ops::Deref;
+use core::cell::UnsafeCell;
+use core::ops::{Deref, DerefMut};
 use core::mem;
 
 pub struct Global<T> {
-    pub elem: Option<T>
+    pub elem: UnsafeCell<Option<T>>
 }
 #[macro_export]
 macro_rules! global_init {
     () => ({ 
         use core::option::Option::None;
-        Global { elem: None } 
+        use core::cell::UnsafeCell;
+        Global { elem: UnsafeCell { value: None } } 
     });
 }
 
+unsafe impl<T> Sync for Global<T> { }
+
 impl<T> Global<T> {
-    
+
     pub fn init(&self, elem: T) {
-        unsafe { 
-            // Subverting the mutability of the global for initial assignment.
-            let ptr: *mut Option<T> = mem::transmute(&self.elem);
-            *ptr = Some(elem);
-        }
+        unsafe { *self.elem.get() = Some(elem); }
     }
 
 }
@@ -28,6 +28,13 @@ impl<T> Global<T> {
 impl<T> Deref for Global<T> {
     type Target = T;
     fn deref(&self) -> &T {
-        self.elem.as_ref().expect("attempted to use an uninitialized global")
+        unsafe { (*self.elem.get()).as_ref().expect("attempted to use an uninitialized global") }
     }
 }
+
+impl<T> DerefMut for Global<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        unsafe { (*self.elem.get()).as_mut().expect("attempted to use an uninitialized global") }
+    }
+}
+
