@@ -9,9 +9,9 @@
 extern crate alloc;
 extern crate mem;
 
-mod pic;
+pub mod pic;
+pub mod timer;
 mod idt;
-mod timer;
 
 use core::prelude::*;
 use core::mem::size_of;
@@ -21,6 +21,43 @@ use pic::init_pic;
 use timer::init_timer;
 use util::asm;
 use alloc::boxed::Box;
+
+// x86 Core Interrupts.
+pub const DIVIDE_ERROR_IRQ: u8          = 0;
+pub const NMI_IRQ: u8                   = 2;
+pub const BREAKPOINT_IRQ: u8            = 3;
+pub const OVERFLOW_IRQ: u8              = 4;
+pub const BOUND_IRQ: u8                 = 5;
+pub const INV_OPCODE_IRQ: u8            = 6;
+pub const NO_MATH_IRQ: u8               = 7;
+pub const COPROC_OVERRUN_IRQ: u8        = 9;
+pub const INVALID_TSS_IRQ: u8           = 10;
+pub const NOT_PRESENT_IRQ: u8           = 11;
+pub const STACK_SEG_FAULT_IRQ: u8       = 12;
+pub const PROTECTION_FAULT_IRQ: u8      = 13;
+pub const PAGE_FAULT_IRQ: u8            = 14;
+pub const MATH_FAULT_IRQ: u8            = 16;
+pub const ALIGNMENT_FAULT_IRQ: u8       = 17;
+pub const MACHINE_CHECK_IRQ: u8         = 18;
+pub const SIMD_FAULT_IRQ: u8            = 19;
+pub const VIRT_FAULT_IRQ: u8            = 20;
+
+// PIC Interrupts.
+pub const TIMER_INT_IRQ: u8             = 32;
+pub const KEYBOARD_INT_IRQ: u8          = 33;
+pub const SERIAL24_INT_IRQ: u8          = 35;
+pub const SERIAL13_INT_IRQ: u8          = 36;
+pub const PARALLEL2_INT_IRQ: u8         = 37;
+pub const FLOPPY_INT_IRQ: u8            = 38;
+pub const PARALLEL1_INT_IRQ: u8         = 39;
+pub const RTC_INT_IRQ: u8               = 40;
+pub const ACPI_INT_IRQ: u8              = 41;
+pub const UNUSED1_INT_IRQ: u8           = 42;
+pub const UNUSED2_INT_IRQ: u8           = 43;
+pub const PS2_INT_IRQ: u8               = 44;
+pub const FPU_INT_IRQ: u8               = 45;
+pub const PRIMARY_ATA_INT_IRQ: u8       = 46;
+pub const SECONDARY_ATA_INT_IRQ: u8     = 47;
 
 pub struct Regs {
     pub edi: u32, 
@@ -42,7 +79,7 @@ pub struct IRet {
     pub ss: u32,
 }
 
-pub type ISR = &'static Fn(u8, &mut Regs, &mut IRet);
+pub type ISR = fn(u8, &mut Regs, &mut IRet);
 struct IVT {
     vectors: [Option<ISR>; 256],
 }

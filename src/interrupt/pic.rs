@@ -49,7 +49,7 @@ pub fn init_pic() {
     asm::outb8(SLAVE_PIC_DATA, 0);
 }
 
-pub fn pic_acknowldge(irq: u8) {
+pub fn acknowledge_irq(irq: u8) {
     assert!(PIC_IRQ_BASE <= irq && irq < PIC_IRQ_BASE + PIC_IRQ_COUNT);
     let pic_irq = irq - PIC_IRQ_BASE;
     if pic_irq < 8 {

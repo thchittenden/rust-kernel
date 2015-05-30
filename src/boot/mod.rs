@@ -20,6 +20,7 @@ use console::CON;
 use alloc::boxed::Box;
 use util::multiboot::MultibootHeader;
 use util::asm;
+use interrupt::{pic, timer, TIMER_INT_IRQ};
 logger_init!(Trace);
 
 /// The kernel entry point. This should never return.
@@ -36,7 +37,8 @@ pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
 
     // Initialize the interrupt subsystem.
     interrupt::init();
-    interrupt::set_isr(32, &timer_interrupt);
+    interrupt::set_isr(TIMER_INT_IRQ, timer_interrupt);
+    timer::set_frequency(19);
 
     // Initialize physical memory with all valid memory regions.
     mem::init(hdr);
@@ -54,4 +56,5 @@ pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
 
 fn timer_interrupt(id: u8, regs: &mut interrupt::Regs, iret: &mut interrupt::IRet) {
     trace!("timer interrupt");
+    pic::acknowledge_irq(id);
 }

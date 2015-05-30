@@ -1,6 +1,6 @@
 #![crate_name="util"]
 #![crate_type="rlib"]
-#![feature(no_std,core,asm)]
+#![feature(no_std,core,asm,unboxed_closures,optin_builtin_traits)]
 #![no_std]
 
 #[macro_use] extern crate core;
