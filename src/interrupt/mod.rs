@@ -19,6 +19,7 @@ use mutex::Mutex;
 use idt::init_idt;
 use pic::init_pic;
 use timer::init_timer;
+use util::USER_CODE_SEGMENT;
 use util::asm;
 use alloc::boxed::Box;
 
@@ -71,13 +72,33 @@ pub struct Regs {
 }
 
 pub struct IRet {
-    pub error_code: u32,
-    pub eip: u32,
-    pub cs: u32,
-    pub eflags: u32,
-    pub esp: u32,
-    pub ss: u32,
+    error_code: u32,
+    eip: u32,
+    cs: u32,
+    eflags: u32,
+    esp: u32,       // ONLY VALID IF CS == USER_CODE_SEGMENT
+    ss: u32,        // ONLY VALID IF CS == USER_CODE_SEGMENT
 }
+
+impl IRet {
+     
+    pub fn get_esp(&self) -> Option<u32> {
+        if self.cs as u16 == USER_CODE_SEGMENT {
+            Some(self.esp)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_ss(&self) -> Option<u32> {
+        if self.cs as u16 == USER_CODE_SEGMENT {
+            Some(self.ss) 
+        } else {
+            None
+        }
+    }
+
+}   
 
 pub type ISR = fn(u8, &mut Regs, &mut IRet);
 struct IVT {

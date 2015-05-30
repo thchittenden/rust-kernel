@@ -25,20 +25,20 @@ logger_init!(Trace);
 
 /// The kernel entry point. This should never return.
 #[no_mangle]
-pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
+pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     println!(CON, "Booting kernel...");
-
-    // Initialize IO (serial ports, etc.) This must be performed first as all logging
-    // functions may go to COM1.
-    io::init();
-
-    // Initialize the allocator.
-    alloc::init();
-
+    
     // Initialize the interrupt subsystem.
     interrupt::init();
     interrupt::set_isr(TIMER_INT_IRQ, timer_interrupt);
     timer::set_frequency(19);
+
+    // Initialize IO (serial ports, etc.) This must be performed early as all logging may go
+    // through COM1.
+    io::init();
+
+    // Initialize the allocator.
+    alloc::init();
 
     // Initialize physical memory with all valid memory regions.
     mem::init(hdr);
@@ -48,6 +48,7 @@ pub extern "C" fn kernel_main (hdr: &MultibootHeader) -> ! {
     trace!("y: {:?}", y);
     drop(y);
 
+    // Enable interrupts for interrupt testing.
     asm::enable_interrupts();
 
     // Don't return.
