@@ -6,7 +6,8 @@
 //!
 use core::prelude::*;
 use alloc::boxed::Box;
-use node::{Raw, Node, HasNode};
+use node::{Node, HasNode};
+use raw::Raw;
 
 /// A queue.
 pub struct LinkedList<T: HasNode<T>> {

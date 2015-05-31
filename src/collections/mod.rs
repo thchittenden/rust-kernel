@@ -16,6 +16,10 @@ extern crate alloc;
 /// The `Node` object used by various collections.
 pub mod node;
 
+/// The `Raw` pointer that allows circular references in collections. This should absolutely not be
+/// public as it circumvents all uniqueness guarantees for `Box`!
+mod raw;
+
 /// A linked list interface.
 pub mod linkedlist;
 
