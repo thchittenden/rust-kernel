@@ -1,9 +1,13 @@
 /// Prints a format string to a device.
 #[macro_export]
 macro_rules! print {
-    ($dst:expr, ($arg:tt)*) => ({
+    ($dst:expr, $fmt:expr) => ({
         use core::fmt::Write;
-        let _ = write!($dst, $($arg)*);
+        let _ = write!($dst, $fmt);
+    });
+    ($dst:expr, $fmt:expr, $($arg:tt)*) => ({
+        use core::fmt::Write;
+        let _ = write!($dst, $fmt, $($arg)*);
     });
 }
 

@@ -52,7 +52,8 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     asm::enable_interrupts();
 
     // Don't return.
-    loop { }
+    println!(CON, "Waiting for input...");
+    loop { print!(CON, "{}", io::keyboard::getc()) }
 }
 
 fn timer_interrupt(id: u8, regs: &mut interrupt::Regs, iret: &mut interrupt::IRet) {
