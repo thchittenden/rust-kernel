@@ -60,6 +60,17 @@ trait Allocator {
             uniq
         })
     }
+  
+    /// Tries to allocate an object from a constructor. Returns a unique pointer to the object if
+    /// successful and `None` otherwise.
+    fn allocate_emplace<F, T>(&mut self, init: F) -> Option<Unique<T>> where F: Fn(&mut T) {
+        let alloc = self.allocate_raw(mem::size_of::<T>(), min_align_of::<T>());
+        alloc.map(|addr| {
+            let uniq = unsafe { Unique::new(addr as *mut T) };
+            init(unsafe { &mut**uniq  });
+            uniq
+        })
+    }
    
     /// Tries to allocate an object at its default alignment. Returns a unique pointer to the
     /// object if successful and `None` otherwise.
@@ -93,6 +104,16 @@ pub fn init() {
 /// Fails if the heap cannot find a slot big enough to accomodate the requested object.
 pub extern fn allocate<T>(elem: T) -> Option<Unique<T>> {
     ALLOCATOR.lock().allocate(elem)
+}
+
+/// Tries to allocate an object on the heap from the given constructor and returns a unique pointer
+/// to it.
+///
+/// # Failures
+///
+/// Fails if the heap cannot find a slot big enough to accomodate the requested object.
+pub extern fn allocate_emplace<F, T>(init: F) -> Option<Unique<T>> where F: Fn(&mut T) {
+    ALLOCATOR.lock().allocate_emplace(init)
 }
 
 /// Tries to allocate an object to an aligned slot on the heap and returns a unique pointer to it.

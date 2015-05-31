@@ -12,7 +12,7 @@ macro_rules! static_condvar {
         // I don't know why we can't use the static_linkedlist!() macro here...
         use collections::linkedlist::LinkedList;
         CondVar {
-            linkedlist: static_mutex!(LinkedList { head: None, tail: None })
+            linkedlist: static_mutex!(LinkedList { len: 0, head: None, tail: None })
         }
     });
 }

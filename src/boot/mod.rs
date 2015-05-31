@@ -12,6 +12,7 @@
 extern crate interrupt;
 extern crate alloc;
 extern crate sched;
+extern crate task;
 extern crate mem;
 extern crate io;
 
@@ -21,6 +22,7 @@ use util::multiboot::MultibootHeader;
 use util::asm;
 use interrupt::{pic, timer, TIMER_INT_IRQ};
 use io::console::CON;
+use task::thread::Thread;
 logger_init!(Trace);
 
 /// The kernel entry point. This should never return.
@@ -45,15 +47,11 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     // Initialize the scheduler.
     sched::init();
 
-    // Enable interrupts for interrupt testing.
-    asm::enable_interrupts();
-
-    // Don't return.
-    println!(CON, "Waiting for input...");
-    loop { print!(CON, "{}", io::keyboard::getc()) }
+    // Create some threads.
+    let t1 = Thread::new(|| { }).unwrap();
+    let t2 = Thread::new(|| { }).unwrap();
+    sched::schedule_thread(t1);
+    sched::schedule_thread(t2);
+    sched::begin();
 }
 
-fn timer_interrupt(id: u8, regs: &mut interrupt::Regs, iret: &mut interrupt::IRet) {
-    trace!("timer interrupt");
-    pic::acknowledge_irq(id);
-}

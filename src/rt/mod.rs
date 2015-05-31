@@ -8,6 +8,7 @@
 #[macro_use] extern crate util;
 extern crate io;
 
+use core::prelude::*;
 use core::fmt::{Arguments, Write};
 use io::console::{Console, Color};
 
@@ -51,6 +52,19 @@ pub unsafe extern fn __assert_fail(msg: *const u8, file: *const u8, line: usize,
 pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
     for i in 0 .. len as isize {
         *dst.offset(i) = *src.offset(i);
+    }
+}
+
+#[no_mangle]
+pub unsafe fn memmove(dst: *mut u8, src: *mut u8, len: usize) {
+    if dst < src {
+        for i in 0 .. len as isize {
+            *dst.offset(i) = *src.offset(i);
+        }
+    } else {
+        for i in (0 .. len as isize).rev() {
+            *dst.offset(i) = *src.offset(i);
+        }
     }
 }
 

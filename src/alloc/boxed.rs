@@ -24,6 +24,12 @@ impl<T> Box<T> {
         ::allocate(x).map(Box)
     }
 
+    /// Allocates memory and calls the initialization function on it. This helps avoid copying
+    /// large data structures on the stack. This is especially important when allocating stacks!
+    pub fn emplace<F>(init: F) -> Option<Box<T>> where F: Fn(&mut T) {
+        ::allocate_emplace(init).map(Box)
+    }
+
     /// Allocates aligned memory on the heap and then moves `x` into it.
     pub fn new_aligned(x: T, align: usize) -> Option<Box<T>> {
         ::allocate_aligned(x, align).map(Box)
@@ -42,7 +48,7 @@ impl <T> Drop for Box<T> {
         mem::swap(&mut self.0, &mut val);
 
         // Manually drop the contents of the box.
-        unsafe { drop(ptr::read(val.get_mut() as *mut T)) };
+        unsafe { drop(&mut *val.get_mut() as *mut T) };
 
         // If we get a non-null pointer back, then we are the first 
         // call to the destructor so we should deallocate the pointer.

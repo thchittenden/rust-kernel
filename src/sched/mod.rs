@@ -22,6 +22,13 @@ use lock::SchedLock;
 use interrupt::{pic, Regs, IRet, TIMER_INT_IRQ};
 logger_init!(Trace);
 
+extern {
+    /// Performs a context switch from one thread to another. While this claims to borrow them
+    /// immutably, it lies and will in fact modify the `from` Thread's `stack_cur` field.
+    fn context_switch(from: &Thread, to: &Thread);
+    fn context_switch_first(to: &Thread) -> !;
+}
+
 struct Scheduler {
     thread: Option<Box<Thread>>,
     runnable: LinkedList<Thread>,
@@ -29,21 +36,63 @@ struct Scheduler {
 
 static SCHED: SchedLock<Scheduler> = static_schedlock!(Scheduler {
     thread: None,
-    runnable: LinkedList { head: None, tail: None } 
+    runnable: LinkedList { len: 0, head: None, tail: None } 
 });
 
 pub fn init() {
     interrupt::set_isr(TIMER_INT_IRQ, timer_interrupt);
 }
 
-fn timer_interrupt(id: u8, regs: &mut Regs, iret: &mut IRet) {
-    trace!("timer interrupt in sched");  
-    pic::acknowledge_irq(id);
-}
-
 // Begins the scheduler.
 pub fn begin() -> ! {
-    unimplemented!()
+    let mut s = SCHED.lock();
+    assert!(s.thread.is_none());
+    assert!(s.runnable.length() > 0);
+
+    // TODO. Initialize idle here.
+
+    // Put the first thread in the running position.
+    let next_thread = s.runnable.pop_head().unwrap();
+    s.thread = Some(next_thread);
+
+    // Context switch to the new thread. TODO file bug? If I don't annotate the type of `thread`
+    // then rustc fails with an error in LLVM codegen.
+    let thread: &Thread = s.thread.as_ref().unwrap();
+    unsafe { context_switch_first(thread) }
+}
+
+// Apparently `yield` is reserved! Bah!
+pub fn _yield (tid: Option<usize>) {
+    let mut s = SCHED.lock(); 
+
+    match tid {
+        Some(tid) => unimplemented!(),
+        None => {
+            // Move the current thread to the end of the queue and move the next thread into the running
+            // thread position.
+            let curr_thread = s.thread.take().unwrap();
+            let next_thread = s.runnable.pop_head().unwrap();
+            s.runnable.push_tail(curr_thread);
+            s.thread = Some(next_thread);
+
+            // Perform the stack swap.
+            let curr_thread: &Thread = s.runnable.borrow_tail().unwrap();
+            let next_thread: &Thread = s.thread.as_ref().unwrap();
+            unsafe { context_switch(curr_thread, next_thread) };
+        }
+    }
+
+}
+
+fn timer_interrupt(id: u8, regs: &mut Regs, iret: &mut IRet) {
+    let s = SCHED.lock();
+
+    // Once interrupts are disabled we can acknowledge the PIC. It's important to do this before
+    // the context switch!
+    pic::acknowledge_irq(id);
+
+    // Yield to whoever's next.
+    _yield(None);
 }
 
 pub fn schedule_thread(t: Box<Thread>) {
@@ -56,5 +105,5 @@ pub fn schedule_thread(t: Box<Thread>) {
 /// This is the mutex's interface to the scheduler.
 #[no_mangle]
 pub extern fn sched_yield(tid: Option<usize>) {
-    unimplemented!()
+    _yield(tid)
 }

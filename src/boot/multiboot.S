@@ -8,6 +8,7 @@
 .globl __morestack
 .globl _kernel_stack_bottom
 .globl _kernel_stack_top
+.globl _tl_desc
 .globl _start
 .globl _gdt
 .globl _idt

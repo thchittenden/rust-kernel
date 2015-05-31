@@ -2,6 +2,10 @@
 //!
 //! Currently this is just implemented using disable_interrupts, however it is general enough so
 //! that it may be implemented using spin locks if SMP is supported in the future.
+//!
+//! SchedLocks are a little dangerous at the moment as it allows the user to obtain multiple
+//! mutable borrows of whatever the contents are by calling `lock()` twice. I'm not sure whether I
+//! want to make the lock non-reentrant or just mark lock as unsafe and live with it.
 
 use core::prelude::*;
 use core::cell::UnsafeCell;

@@ -30,10 +30,10 @@ SECTIONS
     }
 
     /DISCARD/ : {
-        *(.eh_frame)
+        /**(.eh_frame)
         *(.shstrtab)
         *(.symtab)
-        *(.strtab)
+        *(.strtab)*/
     }
 
     /* The heap starts after BSS. */

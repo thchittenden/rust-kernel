@@ -11,6 +11,7 @@ use raw::Raw;
 
 /// A queue.
 pub struct LinkedList<T: HasNode<T>> {
+    pub len: usize,
     pub head: Option<Box<T>>,
     pub tail: Option<Raw<T>>
 }
@@ -20,6 +21,7 @@ pub struct LinkedList<T: HasNode<T>> {
 macro_rules! static_linkedlist {
     () => ({
         LinkedList {
+            len: 0,
             head: None,
             tail: None
         }
@@ -48,6 +50,7 @@ impl<T: HasNode<T>> LinkedList<T> {
                 self.head = Some(new_head);
             }
         }
+        self.len += 1;
     }
 
     
@@ -66,6 +69,7 @@ impl<T: HasNode<T>> LinkedList<T> {
                 tail.node_mut().next = Some(new_tail);
             }
         }
+        self.len += 1;
     }
 
     pub fn pop_head(&mut self) -> Option<Box<T>> {
@@ -82,6 +86,7 @@ impl<T: HasNode<T>> LinkedList<T> {
                     self.head = Some(new_head);
                 }
             }
+            self.len -= 1;
             assert!(self.head.is_none() == self.tail.is_none());
             assert!(head.node().next.is_none());
             assert!(head.node().prev.is_none());
@@ -103,11 +108,24 @@ impl<T: HasNode<T>> LinkedList<T> {
                     res
                 }
             };
+            self.len -= 1;
             assert!(self.head.is_none() == self.tail.is_none());
             assert!(tail.node().next.is_none());
             assert!(tail.node().prev.is_none());
             tail
         })
+    }
+
+    pub fn borrow_tail(&self) -> Option<&T> {
+        self.tail.as_ref().map(|tail| &**tail)
+    }
+
+    pub fn borrow_tail_mut(&mut self) -> Option<&mut T> {
+        self.tail.as_mut().map(|tail| &mut**tail)
+    }
+
+    pub fn length(&self) -> usize {
+        self.len
     }
 
 }
