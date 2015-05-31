@@ -10,7 +10,7 @@ use core::result::Result;
 use core::result::Result::Ok;
 use core::str::StrExt;
 
-use color::Color;
+use console::color::Color;
 
 use mutex::Mutex;
 

@@ -6,10 +6,10 @@
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
-extern crate console;
+extern crate io;
 
 use core::fmt::{Arguments, Write};
-use console::{Console, Color};
+use io::console::{Console, Color};
 
 // This is our panic function. It must be declared "extern" or arguments
 // will be mangled on the stack.

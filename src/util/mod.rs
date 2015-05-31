@@ -4,7 +4,6 @@
 #![no_std]
 
 #[macro_use] extern crate core;
-extern crate console;
 
 pub mod asm;
 pub mod bitflags;

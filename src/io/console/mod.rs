@@ -1,20 +1,13 @@
-#![crate_name="console"]
-#![crate_type="rlib"]
-#![feature(no_std,core)]
-#![no_std]
 //!
 //! This module contains an interface for interacting with the VGA console. All operations are
 //! performed through a `SafeConsole` which uses a mutex to protect a regular `Console`.
 //!
 
-#[macro_use] extern crate core;
-#[macro_use] extern crate mutex;
+use self::console::SAFE_CONSOLE_INIT;
 
-use console::SAFE_CONSOLE_INIT;
-
-pub use console::SafeConsole;
-pub use console::Console;
-pub use color::*; 
+pub use self::console::SafeConsole;
+pub use self::console::Console;
+pub use self::color::*; 
 
 /// The interface to the VGA console.
 pub mod console;

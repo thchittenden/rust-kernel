@@ -10,7 +10,6 @@
 #[macro_use] extern crate util;
 #[macro_use] extern crate mutex;
 extern crate alloc;
-extern crate console;
 extern crate io;
 
 pub mod phys;

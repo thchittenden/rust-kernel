@@ -9,18 +9,17 @@
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
-extern crate console;
-extern crate mem;
-extern crate alloc;
-extern crate io;
 extern crate interrupt;
+extern crate alloc;
+extern crate mem;
+extern crate io;
 
 use core::mem::drop;
-use console::CON;
 use alloc::boxed::Box;
 use util::multiboot::MultibootHeader;
 use util::asm;
 use interrupt::{pic, timer, TIMER_INT_IRQ};
+use io::console::CON;
 logger_init!(Trace);
 
 /// The kernel entry point. This should never return.

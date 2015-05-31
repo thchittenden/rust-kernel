@@ -14,6 +14,7 @@ extern crate interrupt;
 
 /// The serial port module.
 pub mod serial;
+pub mod console;
 pub mod keyboard;
 
 use util::global::Global;
