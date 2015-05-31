@@ -11,6 +11,7 @@
 #[macro_use] extern crate util;
 extern crate interrupt;
 extern crate alloc;
+extern crate sched;
 extern crate mem;
 extern crate io;
 
@@ -29,7 +30,6 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     
     // Initialize the interrupt subsystem.
     interrupt::init();
-    interrupt::set_isr(TIMER_INT_IRQ, timer_interrupt);
     timer::set_frequency(19);
 
     // Initialize IO (serial ports, etc.) This must be performed early as all logging may go
@@ -41,11 +41,9 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
 
     // Initialize physical memory with all valid memory regions.
     mem::init(hdr);
-    
-    let x = Box::new(3);
-    let y = Box::new(x);
-    trace!("y: {:?}", y);
-    drop(y);
+
+    // Initialize the scheduler.
+    sched::init();
 
     // Enable interrupts for interrupt testing.
     asm::enable_interrupts();

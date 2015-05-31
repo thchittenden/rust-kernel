@@ -1,18 +1,18 @@
 use core::any::Any;
-use collections::queue::Queue;
+use collections::linkedlist::LinkedList;
 use mutex::{Mutex, MutexGuard};
 use task::thread::Thread;
 
 pub struct CondVar {
-    pub queue: Mutex<Queue<Thread>>
+    pub linkedlist: Mutex<LinkedList<Thread>>
 }
 
 macro_rules! static_condvar {
     () => ({
-        // I don't know why we can't use the static_queue!() macro here...
-        use collections::queue::Queue;
+        // I don't know why we can't use the static_linkedlist!() macro here...
+        use collections::linkedlist::LinkedList;
         CondVar {
-            queue: static_mutex!(Queue { head: None, tail: None })
+            linkedlist: static_mutex!(LinkedList { head: None, tail: None })
         }
     });
 }

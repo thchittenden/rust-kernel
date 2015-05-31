@@ -112,7 +112,10 @@ pub fn set_isr(irq: u8, isr: ISR) {
     // We know this is safe because the only place we only assign to this table with interrupts
     // disabled.
     assert!(!asm::interrupts_enabled());
-    unsafe { IVT.vectors[irq as usize] = Some(isr) }; 
+    unsafe { 
+        assert!(IVT.vectors[irq as usize].is_none());
+        IVT.vectors[irq as usize] = Some(isr);
+    }
 }
 
 /// The interrupt dispatcher. This is called by all interrupt wrappers and dispatches the interrupt

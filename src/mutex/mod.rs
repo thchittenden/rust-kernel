@@ -99,13 +99,13 @@ unsafe impl <T> Sync for Mutex<T> { }
 impl <'mutex, T> Deref for MutexGuard<'mutex, T> {
     type Target = T;
     fn deref<'a>(&'a self) -> &'a T {
-        return unsafe { &*self.data.get() };
+        unsafe { &*self.data.get() }
     }
 }
 
 impl <'mutex, T> DerefMut for MutexGuard<'mutex, T> {
     fn deref_mut<'a>(&'a mut self) -> &'a mut T {
-        return unsafe { &mut *self.data.get() };
+        unsafe { &mut *self.data.get() }
     }
 }
 

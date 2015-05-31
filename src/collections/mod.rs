@@ -16,6 +16,6 @@ extern crate alloc;
 /// The `Node` object used by various collections.
 pub mod node;
 
-/// A queue interface.
-#[macro_use] pub mod queue;
+/// A linked list interface.
+pub mod linkedlist;
 

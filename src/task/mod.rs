@@ -14,7 +14,7 @@ extern crate mem;
 /// Thread related structures.
 pub mod thread;
 
-use core::ops::Fn;
+use core::prelude::*;
 use mem::virt::PageDirectory;
 use util::rawbox::RawBox;
 
@@ -30,7 +30,8 @@ impl Task {
     // Creates a new task that will execute the given function. Unfortunately
     // the type system does not allow diverging closures, so we must settle for
     // a closure that we promise will vanish when it's done.
-    pub fn new<F> (taskfn: F) -> Task where F: Fn() -> () {
+    pub fn new<F> (taskfn: F) -> Option<Task> where F: Fn() -> () {
+
        unimplemented!() 
     }
 
