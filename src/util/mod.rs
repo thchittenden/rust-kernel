@@ -1,6 +1,6 @@
 #![crate_name="util"]
 #![crate_type="rlib"]
-#![feature(no_std,core,asm,unboxed_closures,optin_builtin_traits)]
+#![feature(no_std,core,asm,unique)]
 #![no_std]
 
 #[macro_use] extern crate core;
@@ -12,6 +12,7 @@ pub mod global;
 pub mod logger;
 pub mod macros;
 pub mod multiboot;
+pub mod rawbox;
 
 pub const NULL_SEGMENT: u16 = 0x0000;
 pub const KERNEL_CODE_SEGMENT: u16 = 0x0008;

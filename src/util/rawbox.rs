@@ -13,9 +13,19 @@ use core::hash::Hash;
 use core::cmp::Ordering;
 use core::fmt;
 use core::ops::{Deref, DerefMut};
+use core::mem;
 
 /// An owned pointer.
 pub struct RawBox<T>(Unique<T>);
+
+/// A marker trait indicating we can freely cast a box of this type to a box of another type given
+/// it will fit. This is used for objects like Frame that represent 4K of unallocated memory.
+pub trait Unallocated { 
+    /// Returns the amount of free space the struct represents. mem::size_of does not suffice in
+    /// this case as we don't always want to fill the entire area of memory with a struct (e.g. in
+    /// the case of a Frame).
+    fn get_free_size(&self) -> usize;
+}
 
 impl<T> RawBox<T> {
    
@@ -51,6 +61,16 @@ impl<T> RawBox<T> {
     /// Mutably borrows the contents of the box.
     pub fn borrow_mut(&mut self) -> &mut T {
         unsafe { self.0.get_mut() }
+    }
+
+}
+
+impl <T: Unallocated> RawBox<T> {
+   
+    /// Convert a pointer to unallocated memory to some allocated memory.
+    pub fn allocate<U>(mut self) -> RawBox<U> {
+        assert!(mem::size_of::<U>() <= self.get_free_size());
+        unsafe { RawBox::from_raw(self.into_raw() as *mut U) }
     }
 
 }

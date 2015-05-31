@@ -7,6 +7,7 @@
 //!
 
 #[macro_use] extern crate core;
+extern crate util;
 extern crate collections;
 extern crate mem;
 
@@ -14,8 +15,8 @@ extern crate mem;
 pub mod thread;
 
 use core::ops::Fn;
-use mem::rawbox::RawBox;
 use mem::virt::PageDirectory;
+use util::rawbox::RawBox;
 
 #[repr(C, packed)]
 pub struct Task {

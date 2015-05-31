@@ -1,8 +1,7 @@
 use core::prelude::*;
-use mem::rawbox::RawBox;
-use util::KERNEL_CODE_SEGMENT;
+use util::{asm, KERNEL_CODE_SEGMENT};
 use util::global::Global;
-use util::asm;
+use util::rawbox::RawBox;
 
 bitflags! {
     flags GateFlags: u16 {

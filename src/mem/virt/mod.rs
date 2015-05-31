@@ -2,10 +2,10 @@ use core::prelude::*;
 use core::mem;
 use core::fmt;
 use core::fmt::{Debug, Formatter};
-use util::{is_aligned, is_page_aligned, PAGE_SIZE};
 use phys;
 use phys::Frame;
-use rawbox::RawBox;
+use util::{is_aligned, is_page_aligned, PAGE_SIZE};
+use util::rawbox::{RawBox, Unallocated};
 
 const ENTRY_MASK: usize = 0x3FF;
 const PT_SHIFT: usize = 12;

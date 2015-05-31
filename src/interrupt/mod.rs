@@ -5,9 +5,6 @@
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
-#[macro_use] extern crate mutex;
-extern crate alloc;
-extern crate mem;
 
 pub mod pic;
 pub mod timer;
@@ -15,13 +12,11 @@ mod idt;
 
 use core::prelude::*;
 use core::mem::size_of;
-use mutex::Mutex;
 use idt::init_idt;
 use pic::init_pic;
 use timer::init_timer;
 use util::USER_CODE_SEGMENT;
 use util::asm;
-use alloc::boxed::Box;
 
 // x86 Core Interrupts.
 pub const DIVIDE_ERROR_IRQ: u8          = 0;

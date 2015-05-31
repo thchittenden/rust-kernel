@@ -1,11 +1,10 @@
 use core::prelude::*;
-use core::ptr::Unique;
 use core::mem;
 use core::fmt;
 use core::fmt::{Debug, Formatter};
 use mutex::Mutex;
 use util::{PAGE_SIZE, is_page_aligned};
-use ::rawbox::RawBox;
+use util::rawbox::{RawBox, Unallocated};
 logger_init!(Trace);
 
 static FREE_FRAME_LIST: Mutex<Option<RawBox<Frame>>> = static_mutex!(None);
@@ -28,24 +27,16 @@ impl Frame {
         frame.next = None;
         frame
     }
+
+}
+
+impl Unallocated for Frame {
+    fn get_free_size(&self) -> usize { PAGE_SIZE }
 }
 
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Frame(0x{:x})", self as *const Frame as usize)
-    }
-}
-
-impl RawBox<Frame> {
-    /// Convert a frame into any type that will fit in that frame.
-    pub fn allocate<T>(self) -> RawBox<T> {
-        assert!(mem::size_of::<T>() <= PAGE_SIZE);
-        unsafe { RawBox::from_raw(self.into_raw() as *mut T) }
-    }
-
-    /// Consumes an owned box and returns the underlying pointer.
-    pub fn into_addr(self) -> usize {
-        self.into_raw() as usize
     }
 }
 

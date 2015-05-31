@@ -1,6 +1,6 @@
 #![crate_name="mem"]
 #![crate_type="rlib"]
-#![feature(no_std,core,step_by,unique,negate_unsigned)]
+#![feature(no_std,core,step_by,negate_unsigned)]
 #![no_std]
 //!
 //! This module contains definitions for interacting with physical/virtual memory.
@@ -13,19 +13,18 @@ extern crate alloc;
 extern crate console;
 extern crate io;
 
-pub mod rawbox;
 pub mod phys;
 pub mod virt;
 
 use core::prelude::*;
 use core::mem;
 use alloc::boxed::Box;
-use rawbox::RawBox;
 use phys::Frame;
 use virt::{PageTableEntry, PageDirectoryEntry, PageTable, PageDirectory};
 use virt::{PDE_WRITABLE, PDE_SUPERVISOR, PDE_MAPPED_SIZE, PD_RECMAP_ADDR};
 use virt::{PTE_WRITABLE, PTE_SUPERVISOR, PTE_GLOBAL};
 use util::{page_align, is_page_aligned, PAGE_SIZE};
+use util::rawbox::RawBox;
 use util::global::Global;
 use util::multiboot::MultibootHeader;
 use util::asm::{enable_paging, enable_global_pages, set_cr3};
