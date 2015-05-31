@@ -12,20 +12,28 @@
 //! LLVM should really support custom targets!
 //!
 use core::prelude::*;
+use core::atomic::{AtomicIsize, ATOMIC_ISIZE_INIT, Ordering};
 use core::mem;
 use alloc::boxed::Box;
 use collections::node::{Node, HasNode};
+use util::asm;
 logger_init!(Trace);
 
 const STACK_SIZE: usize = 1017;
-const RET_OFFSET: usize = STACK_SIZE - 1;
-const EBP_OFFSET: usize = STACK_SIZE - 2;
-const EBX_OFFSET: usize = STACK_SIZE - 3;
-const EDI_OFFSET: usize = STACK_SIZE - 4;
-const ESI_OFFSET: usize = STACK_SIZE - 5;
+const STACK_TOP:  usize = STACK_SIZE - 1;
+const ARG_OFFSET: usize = STACK_SIZE - 2;
+const RET_OFFSET: usize = STACK_SIZE - 4;
+const EBP_OFFSET: usize = STACK_SIZE - 5;
+const EBX_OFFSET: usize = STACK_SIZE - 6;
+const EDI_OFFSET: usize = STACK_SIZE - 7;
+const ESI_OFFSET: usize = STACK_SIZE - 8;
+static next_tid: AtomicIsize = ATOMIC_ISIZE_INIT;
 
-fn thread_entry() {
-    loop { trace!("in thread") }
+extern fn thread_entry(tcb: &Thread) {
+    asm::enable_interrupts();
+    loop { 
+        trace!("in thread {}", tcb.tid);
+    }
 }
 
 #[repr(C, packed)]
@@ -36,24 +44,25 @@ pub struct Thread {
     stack_top: usize,
     stack_bottom: usize, // This MUST be at offset 0x10
     sched_node: Node<Thread>,
-    stack: [u32; STACK_SIZE]
+    stack: [usize; STACK_SIZE]
 }
 
 impl Thread {
 
     pub fn new<F>(f: F) -> Option<Box<Thread>> where F: Fn() -> () {
         Box::emplace(|thread: &mut Thread| {
-            thread.tid = 0;
+            thread.tid = next_tid.fetch_add(1, Ordering::Relaxed) as i32;
             thread.pid = 0;
             thread.sched_node = Node { next: None, prev: None };
+            thread.stack_cur = &thread.stack[ESI_OFFSET] as *const usize as usize;
+            thread.stack_top = &thread.stack[STACK_TOP] as *const usize as usize;
+            thread.stack_bottom = &thread.stack[0] as *const usize as usize;
+            thread.stack[ARG_OFFSET] = thread as *const Thread as usize;
             thread.stack[RET_OFFSET] = unsafe { mem::transmute(thread_entry) };
-            thread.stack[EBP_OFFSET] = 0;
+            thread.stack[EBP_OFFSET] = thread.stack_top;
             thread.stack[EBX_OFFSET] = 0;
             thread.stack[EDI_OFFSET] = 0;
             thread.stack[ESI_OFFSET] = 0;
-            thread.stack_cur = &thread.stack[EDI_OFFSET] as *const u32 as usize;
-            thread.stack_top = &thread.stack[STACK_SIZE] as *const u32 as usize;
-            thread.stack_bottom = &thread.stack[0] as *const u32 as usize;
         })
     }
 

@@ -7,14 +7,12 @@
 
 .globl context_switch
 context_switch:
-    push %ebp
-    mov %esp, %ebp
-
     // Get the current and next TCBs.
-    mov 0x8(%ebp), %eax
-    mov 0xc(%ebp), %ecx
+    mov 0x4(%esp), %eax
+    mov 0x8(%esp), %ecx
 
     // Push the callee save registers.
+    push %ebp
     push %ebx
     push %edi
     push %esi
@@ -33,18 +31,15 @@ context_switch:
     pop %esi
     pop %edi
     pop %ebx
+    pop %ebp
     
     // Return to the new thread.
-    leave
     ret
 
 .globl context_switch_first
 context_switch_first:
-    push %ebp
-    mov %esp, %ebp
-
     // Get the next TCB.
-    mov 0x8(%ebp), %ecx
+    mov 0x4(%esp), %ecx
 
     // Update the %fs descriptor so it points to the TCB and allows
     // stack overflow detection.
@@ -60,9 +55,9 @@ context_switch_first:
     pop %esi
     pop %edi
     pop %ebx
+    pop %ebp
 
     // Return to the new thread.
-    leave
     ret
 
 set_tl_desc:
