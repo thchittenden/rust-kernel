@@ -16,20 +16,15 @@ extern crate task;
 extern crate mem;
 extern crate io;
 
-use core::mem::drop;
-use alloc::boxed::Box;
 use util::multiboot::MultibootHeader;
-use util::asm;
-use interrupt::{pic, timer, TIMER_INT_IRQ};
-use interrupt::{BREAKPOINT_IRQ, Regs, IRet};
-use io::console::CON;
+use interrupt::{timer, BREAKPOINT_IRQ, Regs, IRet};
 use task::thread::Thread;
 logger_init!(Trace);
 
 /// The kernel entry point. This should never return.
 #[no_mangle]
 pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
-    println!(CON, "Booting kernel...");
+    println!(io::console::CON, "Booting kernel...");
     
     // Initialize the interrupt subsystem. Install a no-op handler for breakpoints since apparently
     // they're added to rust code sometimes...

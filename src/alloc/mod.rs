@@ -22,16 +22,13 @@
 #[macro_use] extern crate util;
 #[macro_use] extern crate mutex;
 extern crate io;
-logger_init!(Trace);
 
 pub mod boxed;
-mod naive;
 mod lmm;
 
 use core::prelude::*;
 use core::mem;
 use core::mem::min_align_of;
-use core::ptr;
 use core::ptr::Unique;
 use mutex::Mutex;
 use lmm::{LMMAllocator, LMM_ALLOCATOR_INIT};

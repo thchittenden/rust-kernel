@@ -10,10 +10,11 @@ use util::rawbox::{RawBox, Unallocated};
 const ENTRY_MASK: usize = 0x3FF;
 const PT_SHIFT: usize = 12;
 const PD_SHIFT: usize = 22;
-const PTE_ALIGN: usize = (1 << PT_SHIFT);
-const PDE_ALIGN: usize = (1 << PD_SHIFT);
 pub const PTE_MAPPED_SIZE: usize = (1 << PT_SHIFT);
 pub const PDE_MAPPED_SIZE: usize = (1 << PD_SHIFT);
+
+#[allow(unsigned_negation)]
+// This is intentional. We want it to be the last page directory entry.
 pub const PD_RECMAP_ADDR: usize = -PDE_MAPPED_SIZE;
 
 // Converts an address to its page table index.

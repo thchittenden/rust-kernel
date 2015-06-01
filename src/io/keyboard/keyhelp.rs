@@ -1,5 +1,7 @@
+// Lots of constants we don't want to delete in here.
+#![allow(dead_code)]
+
 use core::prelude::*;
-type kh_t = u32;
 
 const KH_STATE_SHIFT: u32 = 16;
 const KH_STATE_SMASK: u32 = 0xff00;
@@ -30,15 +32,15 @@ const KH_RESULT_MAKE: u32 = 0x01;
 macro_rules! kh_gen {
     ($id:ident, $var:ident, $res:ty, $exp:expr) => (
         #[inline]
-        fn $id ($var: kh_t) -> $res {
+        fn $id ($var: u32) -> $res {
             $exp
         }
     );
 }
 
-kh_gen!(kh_state, k, kh_t, (k >> KH_STATE_SHIFT) & KH_STATE_SMASK);
-kh_gen!(kh_rmods, k, kh_t, (k >> KH_RMODS_SHIFT) & KH_RMODS_SMASK);
-kh_gen!(kh_getraw, k, kh_t, (k >> KH_RAWCHAR_SHIFT) & KH_RAWCHAR_SMASK);
+kh_gen!(kh_state, k, u32, (k >> KH_STATE_SHIFT) & KH_STATE_SMASK);
+kh_gen!(kh_rmods, k, u32, (k >> KH_RMODS_SHIFT) & KH_RMODS_SMASK);
+kh_gen!(kh_getraw, k, u32, (k >> KH_RAWCHAR_SHIFT) & KH_RAWCHAR_SMASK);
 kh_gen!(kh_getchar, k, char, ((k >> KH_CHAR_SHIFT) & KH_CHAR_SMASK) as u8 as char);
 
 kh_gen!(kh_capslock, k, bool, (k >> KH_STATE_SHIFT) & KH_CAPS_LOCK != 0);
@@ -51,11 +53,11 @@ kh_gen!(kh_numpad, k, bool, (k >> KH_RMODS_SHIFT) & KH_RESULT_NUMPAD != 0);
 kh_gen!(kh_ismake, k, bool, (k >> KH_RMODS_SHIFT) & KH_RESULT_MAKE != 0);
 
 extern {
-    fn process_scancode(scancode: isize) -> kh_t;
+    fn process_scancode(scancode: u32) -> u32;
 }
 
-pub fn process_key(key: isize) -> Option<char> {
-    let res = unsafe { process_scancode(key) };
+pub fn process_key(key: u8) -> Option<char> {
+    let res = unsafe { process_scancode(key as u32) };
     if kh_ismake(res) && kh_haschar(res) {
         Some(kh_getchar(res))
     } else {

@@ -1,7 +1,6 @@
 use core::prelude::*;
 use core::cell::UnsafeCell;
 use core::ops::{Deref, DerefMut};
-use core::mem;
 
 pub struct Global<T> {
     pub elem: UnsafeCell<Option<T>>

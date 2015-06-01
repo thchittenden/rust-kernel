@@ -6,14 +6,13 @@
 //! More information can be found here: http://www.cs.utah.edu/flux/oskit/html/oskit-wwwch25.html
 //!
 use core::prelude::*;
-use core::ptr::Unique;
-use core::mem;
-use ::Allocator;
 use util::align_bits;
+use Allocator;
 logger_init!(Trace);
 
 const ALLOC_FLAGS: u32 = 0;
 
+#[allow(dead_code,improper_ctypes)]
 extern {
     fn lmm_init(lmm: &mut LMM);
     fn lmm_add_region(lmm: &mut LMM, region: &mut LMMRegion, addr: usize, size: usize);

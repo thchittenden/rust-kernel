@@ -11,12 +11,10 @@ pub mod timer;
 mod idt;
 
 use core::prelude::*;
-use core::mem::size_of;
-use idt::init_idt;
-use pic::init_pic;
 use timer::init_timer;
-use util::USER_CODE_SEGMENT;
-use util::asm;
+use pic::init_pic;
+use idt::init_idt;
+use util::{asm, USER_CODE_SEGMENT};
 
 // x86 Core Interrupts.
 pub const DIVIDE_ERROR_IRQ: u8          = 0;

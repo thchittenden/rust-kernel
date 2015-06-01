@@ -118,8 +118,14 @@ macro_rules! bitflags {
             bits: $T,
         }
 
-        $($(#[$Flag_attr])* pub const $Flag: $BitFlags = $BitFlags { bits: $value };)+
+        $(
+            #[allow(dead_code)] 
+            #[allow(non_upper_case_globals)]
+            $(#[$Flag_attr])* 
+            pub const $Flag: $BitFlags = $BitFlags { bits: $value };
+        )+
 
+        #[allow(dead_code)]
         impl $BitFlags {
             /// Returns an empty set of flags.
             #[inline]

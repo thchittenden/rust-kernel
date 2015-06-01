@@ -1,6 +1,10 @@
 //!
 //! This module contains definitions for interacting with the serial ports.
 //!
+
+// Lots of dead constants we don't really want to delete.
+#![allow(dead_code)]
+
 use core::prelude::*;
 use core::fmt::{Write, Arguments, Error};
 use mutex::Mutex;

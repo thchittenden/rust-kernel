@@ -1,3 +1,4 @@
+#![allow(dead_code)] // Constants.
 use util::asm;
 
 const TIMER_CHAN0: u16 = 0x0040;

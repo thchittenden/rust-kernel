@@ -1,5 +1,5 @@
 use core::prelude::*;
-use util::{asm, KERNEL_CODE_SEGMENT};
+use util::KERNEL_CODE_SEGMENT;
 use util::global::Global;
 use util::rawbox::RawBox;
 
@@ -39,6 +39,7 @@ impl IDTEntry {
         self.flags     = flags | PRESENT;
     }
 
+    #[allow(dead_code)]
     pub fn is_present(&self) -> bool {
         self.flags.contains(PRESENT)
     }

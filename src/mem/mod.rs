@@ -16,13 +16,11 @@ pub mod phys;
 pub mod virt;
 
 use core::prelude::*;
-use core::mem;
-use alloc::boxed::Box;
 use phys::Frame;
-use virt::{PageTableEntry, PageDirectoryEntry, PageTable, PageDirectory};
+use virt::{PageTable, PageDirectory};
 use virt::{PDE_WRITABLE, PDE_SUPERVISOR, PDE_MAPPED_SIZE, PD_RECMAP_ADDR};
 use virt::{PTE_WRITABLE, PTE_SUPERVISOR, PTE_GLOBAL};
-use util::{page_align, is_page_aligned, PAGE_SIZE};
+use util::{page_align, PAGE_SIZE};
 use util::rawbox::RawBox;
 use util::global::Global;
 use util::multiboot::MultibootHeader;
@@ -30,7 +28,7 @@ use util::asm::{enable_paging, enable_global_pages, set_cr3};
 logger_init!(Trace);
 
 // The kernel page directory. This is the default page directory used by new tasks. 
-static kpd: Global<RawBox<PageDirectory>> = global_init!();
+static KPD: Global<RawBox<PageDirectory>> = global_init!();
 
 /// Initializes all memory related submodules. 
 ///
@@ -42,7 +40,7 @@ pub fn init(hdr: &MultibootHeader) {
     virt::init();
     hdr.walk_mmap(add_range_safe);
     direct_map_kernel(); 
-    set_cr3(kpd.borrow() as *const PageDirectory as usize);
+    set_cr3(KPD.borrow() as *const PageDirectory as usize);
     enable_global_pages();
     enable_paging();
 }
@@ -99,7 +97,7 @@ fn direct_map_kernel() {
     }
 
     // Set the global default kernel page directory. We're subverting the 
-    kpd.init(pd);
+    KPD.init(pd);
 }
 
 // This function filters memory ranges reported by the bootloader to remove the

@@ -25,6 +25,7 @@ use core::prelude::*;
 
 // This is our entry point to the scheduler. This prevents the need for libmutex to rely on
 // libsched which indirectly needs to rely on libmutex.
+#[allow(improper_ctypes)] // This doesn't go to C!
 extern {
     fn sched_yield(tid: Option<usize>);
 }

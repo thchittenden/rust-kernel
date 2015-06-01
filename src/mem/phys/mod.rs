@@ -1,5 +1,4 @@
 use core::prelude::*;
-use core::mem;
 use core::fmt;
 use core::fmt::{Debug, Formatter};
 use mutex::Mutex;

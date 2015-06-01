@@ -6,7 +6,7 @@
 //!
 use core::prelude::*;
 use alloc::boxed::Box;
-use node::{Node, HasNode};
+use node::HasNode;
 use raw::Raw;
 
 /// A queue.

@@ -1,4 +1,3 @@
-use core::atomic::{AtomicUsize, Ordering};
 use core::cell::UnsafeCell;
 use core::ops::{Deref, DerefMut};
 use core::prelude::*;
@@ -24,9 +23,7 @@ pub struct Semaphore<T> {
 #[macro_export]
 macro_rules! static_semaphore {
     ($count:expr, $data:expr) => ({
-        use core::atomic::ATOMIC_USIZE_INIT;
         use core::cell::UnsafeCell;
-        use $crate::mutex::Mutex;
         Semaphore {
             semint: static_mutex!(SemaphoreInternal {
                 count: $count,

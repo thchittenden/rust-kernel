@@ -1,3 +1,4 @@
+#![allow(dead_code)] // Constants.
 use util::asm;
 
 const PIC_IRQ_BASE: u8 = 32;

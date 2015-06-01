@@ -33,10 +33,6 @@ macro_rules! static_schedlock {
 
 impl<T> SchedLock<T> {
     
-    pub fn new(data: T) -> SchedLock<T> {
-        static_schedlock!(data)
-    }
-
     pub fn lock<'a>(&'a self) -> SchedLockGuard<'a, T> {
         let reenable = asm::interrupts_enabled();
         if reenable {

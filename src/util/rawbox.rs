@@ -68,7 +68,7 @@ impl<T> RawBox<T> {
 impl <T: Unallocated> RawBox<T> {
    
     /// Convert a pointer to unallocated memory to some allocated memory.
-    pub fn allocate<U>(mut self) -> RawBox<U> {
+    pub fn allocate<U>(self) -> RawBox<U> {
         assert!(mem::size_of::<U>() <= self.get_free_size());
         unsafe { RawBox::from_raw(self.into_raw() as *mut U) }
     }

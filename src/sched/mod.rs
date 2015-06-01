@@ -16,11 +16,9 @@ extern crate io;
 use core::prelude::*;
 use alloc::boxed::Box;
 use collections::linkedlist::LinkedList;
-use collections::node::HasNode;
 use task::thread::Thread;
 use lock::SchedLock;
 use interrupt::{pic, Regs, IRet, TIMER_INT_IRQ};
-logger_init!(Trace);
 
 extern {
     /// Performs a context switch from one thread to another. While this claims to borrow them
@@ -70,7 +68,7 @@ pub fn _yield (tid: Option<usize>) {
     let mut s = SCHED.lock(); 
 
     match tid {
-        Some(tid) => unimplemented!(),
+        Some(_) => unimplemented!(),
         None => {
             // Move the current thread to the end of the queue and move the next thread into the running
             // thread position.
@@ -88,8 +86,8 @@ pub fn _yield (tid: Option<usize>) {
 
 }
 
-fn timer_interrupt(id: u8, regs: &mut Regs, iret: &mut IRet) {
-    let s = SCHED.lock();
+fn timer_interrupt(id: u8, _: &mut Regs, _: &mut IRet) {
+    let _ = SCHED.lock();
 
     // Once interrupts are disabled we can acknowledge the PIC. It's important to do this before
     // the context switch!

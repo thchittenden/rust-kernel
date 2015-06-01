@@ -13,7 +13,7 @@ static mut KEYBOARD_BUF: KeyboardBuffer = KEYBOARD_BUFFER_INIT;
 /// buffer if this interrupt generated one.
 pub fn keyboard_handler(id: u8, _: &mut Regs, _: &mut IRet) {
     let key = asm::inb8(KEYBOARD_PORT);
-    let res = keyhelp::process_key(key as isize);
+    let res = keyhelp::process_key(key);
 
     // We know this is safe because only the interrupt handler ever enqueues.
     if let Some(c) = res {

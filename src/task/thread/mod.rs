@@ -27,7 +27,7 @@ const EBP_OFFSET: usize = STACK_SIZE - 5;
 const EBX_OFFSET: usize = STACK_SIZE - 6;
 const EDI_OFFSET: usize = STACK_SIZE - 7;
 const ESI_OFFSET: usize = STACK_SIZE - 8;
-static next_tid: AtomicIsize = ATOMIC_ISIZE_INIT;
+static NEXT_TID: AtomicIsize = ATOMIC_ISIZE_INIT;
 
 /// The entry point for all new threads. Currently this doesn't do much.
 extern fn thread_entry(thread: &Thread) -> ! {
@@ -52,7 +52,7 @@ impl Thread {
 
     pub fn new(f: fn() -> !) -> Option<Box<Thread>> {
         Box::emplace(|thread: &mut Thread| {
-            thread.tid = next_tid.fetch_add(1, Ordering::Relaxed) as i32;
+            thread.tid = NEXT_TID.fetch_add(1, Ordering::Relaxed) as i32;
             thread.pid = 0;
             thread.sched_node = Node { next: None, prev: None };
             thread.threadfn = f;

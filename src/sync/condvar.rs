@@ -1,4 +1,3 @@
-use core::any::Any;
 use collections::linkedlist::LinkedList;
 use mutex::{Mutex, MutexGuard};
 use task::thread::Thread;
@@ -19,7 +18,7 @@ macro_rules! static_condvar {
 
 impl CondVar {
     
-    pub fn wait<T>(&self, lock: &MutexGuard<T>) {
+    pub fn wait<T>(&self, _: &MutexGuard<T>) {
         unimplemented!()
     }
 
