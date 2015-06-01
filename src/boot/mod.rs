@@ -51,11 +51,16 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     sched::init();
 
     // Create some threads.
-    let t1 = Thread::new(|| { }).unwrap();
-    let t2 = Thread::new(|| { }).unwrap();
+    let t1 = Thread::new(threadfn).unwrap();
+    let t2 = Thread::new(threadfn).unwrap();
     sched::schedule_thread(t1);
     sched::schedule_thread(t2);
     sched::begin();
+}
+
+fn threadfn() -> ! {
+    let tid = sched::get_tid();
+    loop { trace!("hello from thread {}", tid) }
 }
 
 fn nop(_: u8, _: &mut Regs, _: &mut IRet) {

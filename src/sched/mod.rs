@@ -61,6 +61,10 @@ pub fn begin() -> ! {
     unsafe { context_switch_first(thread) }
 }
 
+pub fn get_tid() -> i32 {
+    SCHED.lock().thread.as_ref().unwrap().tid
+}
+
 // Apparently `yield` is reserved! Bah!
 pub fn _yield (tid: Option<usize>) {
     let mut s = SCHED.lock(); 

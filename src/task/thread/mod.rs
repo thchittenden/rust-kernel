@@ -29,31 +29,33 @@ const EDI_OFFSET: usize = STACK_SIZE - 7;
 const ESI_OFFSET: usize = STACK_SIZE - 8;
 static next_tid: AtomicIsize = ATOMIC_ISIZE_INIT;
 
-extern fn thread_entry(tcb: &Thread) {
-    asm::enable_interrupts();
-    loop { 
-        trace!("in thread {}", tcb.tid);
-    }
+/// The entry point for all new threads. Currently this doesn't do much.
+extern fn thread_entry(thread: &Thread) -> ! {
+    trace!("starting thread {}", thread.tid);
+    asm::enable_interrupts(); // TODO temporary!
+    thread.run()
 }
 
 #[repr(C, packed)]
 pub struct Thread {
-    tid: i32,
-    pid: i32,
+    pub tid: i32,
+    pub pid: i32,
     stack_cur: usize, 
     stack_top: usize,
     stack_bottom: usize, // This MUST be at offset 0x10
     sched_node: Node<Thread>,
+    threadfn: fn() -> !,
     stack: [usize; STACK_SIZE]
 }
 
 impl Thread {
 
-    pub fn new<F>(f: F) -> Option<Box<Thread>> where F: Fn() -> () {
+    pub fn new(f: fn() -> !) -> Option<Box<Thread>> {
         Box::emplace(|thread: &mut Thread| {
             thread.tid = next_tid.fetch_add(1, Ordering::Relaxed) as i32;
             thread.pid = 0;
             thread.sched_node = Node { next: None, prev: None };
+            thread.threadfn = f;
             thread.stack_cur = &thread.stack[ESI_OFFSET] as *const usize as usize;
             thread.stack_top = &thread.stack[STACK_TOP] as *const usize as usize;
             thread.stack_bottom = &thread.stack[0] as *const usize as usize;
@@ -64,6 +66,11 @@ impl Thread {
             thread.stack[EDI_OFFSET] = 0;
             thread.stack[ESI_OFFSET] = 0;
         })
+    }
+
+    pub fn run(&self) -> ! {
+        let f = self.threadfn;
+        f()
     }
 
 }
