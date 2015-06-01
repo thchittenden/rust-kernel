@@ -57,7 +57,7 @@ pub struct Regs {
     pub edi: u32, 
     pub esi: u32,
     pub ebp: u32,
-    esp: u32, // This is not the REAL esp.
+    #[allow(dead_code)] esp: u32, // This is not the REAL esp.
     pub ebx: u32,
     pub edx: u32,
     pub ecx: u32,
