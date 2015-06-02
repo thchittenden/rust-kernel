@@ -44,7 +44,7 @@ impl <T> Drop for Box<T> {
         trace!("dropping 0x{:x}", &mut **self as *mut T as usize);
 
         // Swap a null pointer into the box.
-        let mut val = unsafe { Unique::new(ptr::null_mut()) };
+        let mut val: Unique<T> = unsafe { Unique::new(ptr::null_mut()) };
         mem::swap(&mut self.0, &mut val);
 
         // Manually drop the contents of the box.

@@ -9,12 +9,12 @@
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
+#[macro_use] extern crate io;
 extern crate interrupt;
 extern crate alloc;
 extern crate sched;
 extern crate task;
 extern crate mem;
-extern crate io;
 
 use util::multiboot::MultibootHeader;
 use interrupt::{timer, BREAKPOINT_IRQ, Regs, IRet};
@@ -44,6 +44,9 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
 
     // Initialize the scheduler.
     sched::init();
+
+    // Do nothing.
+    loop { }
 
     // Create some threads.
     let t1 = Thread::new(threadfn).unwrap();

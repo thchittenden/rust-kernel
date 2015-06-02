@@ -5,11 +5,11 @@
 
 #[macro_use] extern crate core;
 
+#[macro_use] pub mod macros;
 pub mod asm;
 pub mod bitflags;
 pub mod global;
 pub mod logger;
-pub mod macros;
 pub mod multiboot;
 pub mod rawbox;
 
@@ -29,30 +29,12 @@ macro_rules! getbyte {
 
 #[inline]
 pub fn is_page_aligned(addr: usize) -> bool {
-    is_aligned(addr, PAGE_SIZE)
+    is_aligned!(addr, PAGE_SIZE)
 }
 
 #[inline]
 pub fn page_align(addr: usize) -> usize {
-    align(addr, PAGE_SIZE)
-}
-
-#[inline]
-pub fn is_aligned(addr: usize, alignment: usize) -> bool {
-    assert!(is_pow2(alignment));
-    addr & (alignment - 1) == 0
-}
-
-#[inline]
-pub fn align(addr: usize, alignment: usize) -> usize {
-    assert!(is_pow2(alignment));
-    addr & !(alignment - 1)
-}
-
-#[inline]
-pub fn align_up(addr: usize, alignment: usize) -> usize {
-    //assert!(is_pow2(alignment));
-    (addr + alignment - 1) & !(alignment - 1)
+    align!(addr, PAGE_SIZE)
 }
 
 #[inline]

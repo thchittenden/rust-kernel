@@ -21,7 +21,6 @@
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
 #[macro_use] extern crate mutex;
-extern crate io;
 
 pub mod boxed;
 mod lmm;

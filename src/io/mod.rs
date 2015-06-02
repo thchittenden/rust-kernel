@@ -10,12 +10,14 @@
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
 #[macro_use] extern crate mutex;
+extern crate alloc;
 extern crate interrupt;
 
 /// The serial port module.
 pub mod serial;
 pub mod console;
 pub mod keyboard;
+//pub mod pci;
 
 use util::global::Global;
 use serial::{SafeSerialPort, LCR_8N1};
@@ -29,4 +31,19 @@ pub static COM1: Global<SafeSerialPort> = global_init!();
 pub fn init() {
     COM1.init(SafeSerialPort::new(0x3f8, 115200, LCR_8N1));
     set_isr(KEYBOARD_INT_IRQ, keyboard_handler);
+    
+    // Check for PCI devices.
+    //pci::scan_bus();
+}
+
+#[cfg(LOG_DEVICE="console")]
+#[no_mangle]
+pub extern fn logger_hook(s: &str) -> core::fmt::Result {
+    console::CON.write_str(s)
+}
+
+#[cfg(LOG_DEVICE="serial")]
+#[no_mangle]
+pub extern fn logger_hook(s: &str) -> core::fmt::Result {
+    COM1.write_str(s)
 }

@@ -1,3 +1,6 @@
+use core::marker::Sync;
+use core::fmt;
+
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum LogLevel {
     Trace = 1,
@@ -7,6 +10,22 @@ pub enum LogLevel {
     Error = 5,
     Quiet = 6,
 }
+
+// We promise someone will implement this hook in Rust.
+#[allow(improper_ctypes)]
+extern {
+    fn logger_hook(s: &str) -> fmt::Result;
+}
+pub struct LogWriter;
+impl fmt::Write for LogWriter {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        unsafe { logger_hook(s) }
+    }
+}
+
+// We promise logger_hook is safe, right?
+unsafe impl Sync for LogWriter { }
+pub static mut LOG: LogWriter = LogWriter;
 
 // If there's a better way to do this... I'd like to know.
 #[cfg(LOG_LEVEL="trace")]
@@ -37,48 +56,35 @@ macro_rules! logger_level_enabled {
     ($lvl:path) => { $crate::logger::GLOBAL_LOG_LEVEL <= $lvl && LOG_LEVEL <= $lvl };
 }
 
-#[cfg(LOG_DEVICE="console")]
 #[macro_export]
-macro_rules! logger_get_device {
-    () => ({ 
-        use console::CON;
-        &CON 
+macro_rules! logger_log {
+    ($lvl:ident, $fmt:expr) => ({
+        if logger_level_enabled!($crate::logger::LogLevel::$lvl) {
+            unsafe { println!($crate::logger::LOG, $fmt) };
+        }
     });
-}
-
-#[cfg(not(LOG_DEVICE="console"))]
-#[macro_export]
-macro_rules! logger_get_device {
-    () => ({ 
-        use io::COM1;
-        &COM1 
-    });
+    ($lvl:ident, $fmt:expr, $($arg:tt)*) => ({
+        if logger_level_enabled!($crate::logger::LogLevel::$lvl) {
+            unsafe { println!($crate::logger::LOG, $fmt, $($arg)*) };
+        }
+    })
 }
 
 #[macro_export]
 macro_rules! trace {
-    ($fmt:expr) => ({
-        if logger_level_enabled!($crate::logger::LogLevel::Trace) {
-            println!(logger_get_device!(), concat!("TRACE: ", $fmt));
-        }
-    });
-    ($fmt:expr, $($arg:tt)*) => ({
-        if logger_level_enabled!($crate::logger::LogLevel::Trace) {
-            println!(logger_get_device!(), concat!("TRACE: ", $fmt), $($arg)*);
-        }
-    });
+    ($fmt:expr) => ( logger_log!(Trace, concat!("TRACE: ", $fmt)) );
+    ($fmt:expr, $($arg:tt)*) => ( logger_log!(Trace, concat!("TRACE: ", $fmt), $($arg)*) );
 }
 
 #[macro_export]
 macro_rules! debug {
-    ($fmt:expr) => ({
-        if logger_level_enabled!($crate::logger::LogLevel::Debug) {
-            println!(logger_get_device!(), concat!("DEBUG: ", $fmt));
-        }
-    });
-    ($fmt:expr, $($arg:tt)*) => ({
-        if logger_level_enabled!($crate::logger::LogLevel::Debug) {
-            println!(logger_get_device!(), concat!("DEBUG: ", $fmt), $($arg)*);
-        }
-    });
+    ($fmt:expr) => ( logger_log!(Debug, concat!("DEBUG: ", $fmt)) );
+    ($fmt:expr, $($arg:tt)*) => ( logger_log!(Debug, concat!("DEBUG: ", $fmt, $($arg)*)) );
 }
+
+#[macro_export]
+macro_rules! info {
+    ($fmt:expr) => ( logger_log!(Info, concat!("INFO: ", $fmt)) );
+    ($fmt:expr, $($arg:tt)*) => ( logger_log!(Info, concat!("INFO: ", $fmt, $($arg)*)) );
+}
+

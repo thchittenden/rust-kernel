@@ -8,10 +8,10 @@
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
+#[macro_use] extern crate io;
 extern crate alloc;
 extern crate collections;
 extern crate mem;
-extern crate io;
 
 /// Thread related structures.
 pub mod thread;

@@ -208,6 +208,46 @@ macro_rules! bitflags {
             pub fn toggle(&mut self, other: $BitFlags) {
                 self.bits ^= other.bits;
             }
+
+            /// Returns whether a bit pattern is a valid mask (i.e. a continuous sequence of 1's).
+            #[inline]
+            fn is_valid_mask(&self) -> bool {
+                // Gets the low bit of the mask.
+                let low = self.bits & (!self.bits + 1);
+                
+                // Adding in the low bit should cause overflow that clears all set bits in the
+                // mask.
+               (self.bits + low) & self.bits == 0 
+            }
+
+            /// Sets the bits of a mask in-place.
+            #[inline]
+            pub fn setmask(&mut self, mask: $BitFlags, val: $T) {
+                assert!(mask.is_valid_mask());
+
+                // Gets the lowest bit set in the mask. Multiplying the value by this will shift it
+                // into the correct place.
+                let low = (!mask.bits + 1) & mask.bits;
+                let val = val * low;
+
+                // Assert the value is fully contained in the mask.
+                assert!(val & mask.bits == val && val | mask.bits == mask.bits);
+
+                // Add in our bits.
+                self.remove(mask);
+                self.bits |= val;
+            }
+
+            /// Sets the already shifted bits of a mask in-place.
+            #[inline]
+            pub fn setmask_inplace(&mut self, mask: $BitFlags, val: $T) {
+                assert!(mask.is_valid_mask());
+                assert!(val & mask.bits == val && val | mask.bits == mask.bits);
+                
+                // Add in our bits.
+                self.remove(mask);
+                self.bits |= val;
+            }
         }
 
         impl ::core::ops::BitOr for $BitFlags {

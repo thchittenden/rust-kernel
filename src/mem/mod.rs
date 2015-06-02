@@ -9,8 +9,8 @@
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
 #[macro_use] extern crate mutex;
+#[macro_use] extern crate io;
 extern crate alloc;
-extern crate io;
 
 pub mod phys;
 pub mod virt;

@@ -66,6 +66,31 @@ pub fn enable_global_pages() {
     }
 }
 
+pub fn outb32(addr: u16, val: u32) {
+    unsafe {
+        asm!("mov $0, %dx\n\t
+              mov $1, %eax\n\t
+              outl %eax, %dx\n\t"
+            : 
+            : "r"(addr), "r"(val)
+            : "eax", "edx")
+    }
+}
+
+pub fn inb32(addr: u16) -> u32 {
+    let mut res: u32;
+    unsafe {
+        asm!("mov $1, %dx\n\t
+              inl %dx, %eax\n\t
+              mov %eax, $0\n\t"
+            : "=r"(res)
+            : "r"(addr)
+            : "eax", "edx")
+    }
+    res
+
+}
+
 pub fn outb8(addr: u16, val: u8) {
     unsafe { 
         asm!("mov $0, %dx\n\t

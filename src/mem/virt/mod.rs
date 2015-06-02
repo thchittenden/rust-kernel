@@ -4,7 +4,7 @@ use core::fmt;
 use core::fmt::{Debug, Formatter};
 use phys;
 use phys::Frame;
-use util::{is_aligned, is_page_aligned, PAGE_SIZE};
+use util::{is_page_aligned, PAGE_SIZE};
 use util::rawbox::{RawBox, Unallocated};
 
 const ENTRY_MASK: usize = 0x3FF;
@@ -52,7 +52,7 @@ impl PageDirectoryEntry {
     /// If this page directory entry does not have its 4MB region flag set, this function panics.
     pub fn set_4mbframe(&mut self, frame: usize) {
         assert!(self.contains(PDE_4MBREGION));
-        assert!(is_aligned(frame, PAGE_SIZE*PAGE_SIZE));
+        assert!(is_aligned!(frame, PAGE_SIZE*PAGE_SIZE));
         self.bits |= frame as u32;
     }
 
