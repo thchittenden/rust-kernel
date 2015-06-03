@@ -1,6 +1,6 @@
 #![crate_name="alloc"]
 #![crate_type="rlib"]
-#![feature(no_std,lang_items,unique,core,unsafe_no_drop_flag)]
+#![feature(no_std,lang_items,unique,core,filling_drop)]
 #![no_std]
 //!
 //! The kernel allocation library.
@@ -75,9 +75,9 @@ trait Allocator {
     }
 
     /// Frees an object located on the heap.
-    fn deallocate<T>(&mut self, mut elem: Unique<T>) {
-        let addr = unsafe { elem.get_mut() } as *mut T as usize;
-        let size = mem::size_of::<T>();
+    fn deallocate<T: ?Sized>(&mut self, mut elem: Unique<T>) {
+        let addr = unsafe { elem.get_mut() } as *const _ as *const () as usize;
+        let size = mem::size_of_val(unsafe { elem.get() });
         self.deallocate_raw(addr, size);
     }
 
@@ -123,6 +123,6 @@ pub extern fn allocate_aligned<T>(elem: T, align: usize) -> Option<Unique<T>> {
 
 /// Frees an object on the heap. If this object implements Drop, its destructor WILL NOT BE CALLED.
 /// This is up to the caller of deallocate to perform. TODO This may want to be changed.
-pub extern fn deallocate<T>(elem: Unique<T>) {
+pub extern fn deallocate<T: ?Sized>(elem: Unique<T>) {
     ALLOCATOR.lock().deallocate(elem)
 }

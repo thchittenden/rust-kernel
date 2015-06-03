@@ -4,75 +4,75 @@
 //! handle failure conditions. Thus when constructing Boxes we must return an Option in case the
 //! allocation fails.s 
 use core::prelude::*;
-use core::ptr;
-use core::ptr::Unique;
-use core::mem;
-use core::hash;
-use core::hash::Hash;
+use core::ptr::{self, Unique};
+use core::hash::{self, Hash};
 use core::cmp::Ordering;
+use core::mem;
 use core::fmt;
-use core::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut, CoerceUnsized};
+use core::marker::{Unsize};
+use core::intrinsics::drop_in_place;
 logger_init!(Trace);
 
 /// A pointer type for heap allocations.
-pub struct Box<T>(Unique<T>);
+pub struct Box<T: ?Sized>(*mut T);
 
 impl<T> Box<T> {
     
     /// Allocates memory on the heap and then moves `x` into it.
     pub fn new (x: T) -> Option<Box<T>> {
-        ::allocate(x).map(Box)
+        ::allocate(x).map(|mut uniq| {
+            let raw = unsafe { uniq.get_mut() as *mut T };
+            Box(raw)
+        })
     }
 
     /// Allocates memory and calls the initialization function on it. This helps avoid copying
     /// large data structures on the stack. This is especially important when allocating stacks!
     pub fn emplace<F>(init: F) -> Option<Box<T>> where F: Fn(&mut T) {
-        ::allocate_emplace(init).map(Box)
+        ::allocate_emplace(init).map(|mut uniq| {
+            let raw = unsafe { uniq.get_mut() as *mut T };
+            Box(raw)
+        })
     }
 
     /// Allocates aligned memory on the heap and then moves `x` into it.
     pub fn new_aligned(x: T, align: usize) -> Option<Box<T>> {
-        ::allocate_aligned(x, align).map(Box)
+        ::allocate_aligned(x, align).map(|mut uniq| {
+            let raw = unsafe { uniq.get_mut() as *mut T };
+            Box(raw)
+        })
     }
 }
 
-impl <T> Drop for Box<T> {
+impl<T: ?Sized+Unsize<U>, U: ?Sized> CoerceUnsized<Box<U>> for Box<T> {}
+
+impl <T: ?Sized> Drop for Box<T> {
     /// Deallocates the pointer on the heap. We must pay special attention
     /// that we manually drop the contents of the box, otherwise they may
     /// be lost forever.
     fn drop(&mut self) {
-        trace!("dropping 0x{:x}", &mut **self as *mut T as usize);
-
-        // Swap a null pointer into the box.
-        let mut val: Unique<T> = unsafe { Unique::new(ptr::null_mut()) };
-        mem::swap(&mut self.0, &mut val);
-
-        // Manually drop the contents of the box.
-        unsafe { drop(&mut *val.get_mut() as *mut T) };
+        trace!("dropping {:p}", self.0 as *const ());
 
         // If we get a non-null pointer back, then we are the first 
         // call to the destructor so we should deallocate the pointer.
-        if !val.is_null() {
-            ::deallocate(val);
+        if self.0 as *const () as usize == mem::POST_DROP_USIZE {
+            unsafe { drop_in_place(&mut *self.0) };
+            ::deallocate(unsafe { Unique::new(self.0) });
         }
     }
 }
 
-impl<T> Deref for Box<T> {
+impl<T: ?Sized> Deref for Box<T> {
     type Target = T;
     fn deref(&self) -> &T { 
-        // We cannot implement this as &**self because it causes an infinite 
-        // loop (trying to call deref!). I don't really know why this is 
-        // because this is how deref is implemented for the standard library's
-        // Box...
-        unsafe { self.0.get() } 
+        unsafe { &*self.0 } 
     }
 }
 
 impl<T> DerefMut for Box<T> {
     fn deref_mut(&mut self) -> &mut T { 
-        // See Deref.
-        unsafe { self.0.get_mut() }
+        unsafe { &mut *self.0 }
     }
 }
 

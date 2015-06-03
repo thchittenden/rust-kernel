@@ -53,7 +53,7 @@ DEP_FILES := $(shell [ -d $(DEPDIR) ] && find $(DEPDIR) -name '*.d')
 $(BINDIR)/$(TARGET): $(OBJ_FILES)
 	@mkdir -p $(@D)
 	$(LD) $(LDFLAGS) -o $@ --start-group $(call reverse,$^) $(LIBDIR)/libcore.rlib --end-group
-	@-objdump -d $(BINDIR)/$(TARGET) | ./checkstack.py 4096
+	@-objdump -d $(BINDIR)/$(TARGET) | ./checkstack.py 2048
 
 $(DEPDIR)/%.d: $(SRCDIR)/%/mod.rs
 	@mkdir -p $(@D)
