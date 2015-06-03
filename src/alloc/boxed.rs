@@ -18,33 +18,25 @@ logger_init!(Trace);
 pub struct Box<T: ?Sized>(*mut T);
 
 impl<T> Box<T> {
-    
+   
+    fn make_box(mut uniq: Unique<T>) -> Box<T> {
+        Box(unsafe { uniq.get_mut() as *mut T })
+    }
+
     /// Allocates memory on the heap and then moves `x` into it.
-    pub fn new (x: T) -> Option<Box<T>> {
-        ::allocate(x).map(|mut uniq| {
-            let raw = unsafe { uniq.get_mut() as *mut T };
-            Box(raw)
-        })
+    pub fn new(x: T) -> Option<Box<T>> {
+        ::allocate(x).map(Self::make_box)
     }
 
     /// Allocates memory and calls the initialization function on it. This helps avoid copying
     /// large data structures on the stack. This is especially important when allocating stacks!
     pub fn emplace<F>(init: F) -> Option<Box<T>> where F: Fn(&mut T) {
-        ::allocate_emplace(init).map(|mut uniq| {
-            let raw = unsafe { uniq.get_mut() as *mut T };
-            Box(raw)
-        })
+        ::allocate_emplace(init).map(Self::make_box)
     }
 
-    /// Allocates aligned memory on the heap and then moves `x` into it.
-    pub fn new_aligned(x: T, align: usize) -> Option<Box<T>> {
-        ::allocate_aligned(x, align).map(|mut uniq| {
-            let raw = unsafe { uniq.get_mut() as *mut T };
-            Box(raw)
-        })
-    }
 }
 
+/// Allow casting from a Box<T> to a Box<U> where T implements U.
 impl<T: ?Sized+Unsize<U>, U: ?Sized> CoerceUnsized<Box<U>> for Box<T> {}
 
 impl <T: ?Sized> Drop for Box<T> {
@@ -54,9 +46,8 @@ impl <T: ?Sized> Drop for Box<T> {
     fn drop(&mut self) {
         trace!("dropping {:p}", self.0 as *const ());
 
-        // If we get a non-null pointer back, then we are the first 
-        // call to the destructor so we should deallocate the pointer.
-        if self.0 as *const () as usize == mem::POST_DROP_USIZE {
+        // If we haven't already been dropped, drop the box contents and deallocate the storage.
+        if self.0 as *const () as usize != mem::POST_DROP_USIZE {
             unsafe { drop_in_place(&mut *self.0) };
             ::deallocate(unsafe { Unique::new(self.0) });
         }
@@ -116,7 +107,7 @@ impl<T: Hash> Hash for Box<T> {
 
 impl<T: fmt::Display> fmt::Display for Box<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&**self, f)
+        write!(f, "Box({})", &**self)
     }
 }
 

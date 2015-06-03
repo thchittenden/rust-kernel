@@ -112,15 +112,6 @@ pub extern fn allocate_emplace<F, T>(init: F) -> Option<Unique<T>> where F: Fn(&
     ALLOCATOR.lock().allocate_emplace(init)
 }
 
-/// Tries to allocate an object to an aligned slot on the heap and returns a unique pointer to it.
-///
-/// # Failures 
-///
-/// Fails if the heap cannot find a slot big enough to accomodate the requested object.
-pub extern fn allocate_aligned<T>(elem: T, align: usize) -> Option<Unique<T>> {
-    ALLOCATOR.lock().allocate_aligned(elem, align)
-}
-
 /// Frees an object on the heap. If this object implements Drop, its destructor WILL NOT BE CALLED.
 /// This is up to the caller of deallocate to perform. TODO This may want to be changed.
 pub extern fn deallocate<T: ?Sized>(elem: Unique<T>) {
