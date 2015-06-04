@@ -79,12 +79,12 @@ macro_rules! trace {
 #[macro_export]
 macro_rules! debug {
     ($fmt:expr) => ( logger_log!(Debug, concat!("DEBUG: ", $fmt)) );
-    ($fmt:expr, $($arg:tt)*) => ( logger_log!(Debug, concat!("DEBUG: ", $fmt, $($arg)*)) );
+    ($fmt:expr, $($arg:tt)*) => ( logger_log!(Debug, concat!("DEBUG: ", $fmt), $($arg)*) );
 }
 
 #[macro_export]
 macro_rules! info {
     ($fmt:expr) => ( logger_log!(Info, concat!("INFO: ", $fmt)) );
-    ($fmt:expr, $($arg:tt)*) => ( logger_log!(Info, concat!("INFO: ", $fmt, $($arg)*)) );
+    ($fmt:expr, $($arg:tt)*) => ( logger_log!(Info, concat!("INFO: ", $fmt), $($arg)*) );
 }
 

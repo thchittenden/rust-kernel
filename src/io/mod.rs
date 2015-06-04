@@ -17,7 +17,6 @@ extern crate interrupt;
 pub mod serial;
 pub mod console;
 pub mod keyboard;
-//pub mod pci;
 
 use util::global::Global;
 use serial::{SafeSerialPort, LCR_8N1};
@@ -31,9 +30,6 @@ pub static COM1: Global<SafeSerialPort> = global_init!();
 pub fn init() {
     COM1.init(SafeSerialPort::new(0x3f8, 115200, LCR_8N1));
     set_isr(KEYBOARD_INT_IRQ, keyboard_handler);
-    
-    // Check for PCI devices.
-    //pci::scan_bus();
 }
 
 #[cfg(LOG_DEVICE="console")]

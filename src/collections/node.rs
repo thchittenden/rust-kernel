@@ -19,12 +19,3 @@ pub struct Node<T> {
     pub prev: Option<Raw<T>>,
 }
 
-/// We can box up any type that has a node. TODO this is not right...
-impl<T: HasNode<T>> HasNode<T> for Box<T> {
-    fn node(&self) -> &Node<T> {
-        (**self).node()
-    }
-    fn node_mut(&mut self) -> &mut Node<T> {
-        (**self).node_mut()
-    }
-}
