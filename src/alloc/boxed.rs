@@ -4,7 +4,7 @@
 //! handle failure conditions. Thus when constructing Boxes we must return an Option in case the
 //! allocation fails.s 
 use core::prelude::*;
-use core::ptr::{self, Unique};
+use core::ptr::Unique;
 use core::hash::{self, Hash};
 use core::cmp::Ordering;
 use core::mem;
@@ -36,6 +36,32 @@ impl<T> Box<T> {
 
 }
 
+impl<T: ?Sized> Box<T> {
+    
+    /// Extracts the raw pointer from the box. 
+    ///
+    /// # Safety
+    ///
+    /// This is unsafe because there will be no guarantee that this pointer will be deallocated. 
+    pub unsafe fn into_raw(self) -> *mut T {
+        // "Forget" ourselves so our destructor is never run.
+        let ptr = self.0;
+        mem::forget(self);
+        ptr
+    }
+
+    /// Rebuilds a box from a raw pointer
+    ///
+    /// # Safety
+    ///
+    /// This is unsafe because there is no verification that this pointer is unique or that it is
+    /// on the heap.
+    pub unsafe fn from_raw(ptr: *mut T) -> Box<T> {
+        Box(ptr)
+    }
+
+}
+
 /// Allow casting from a Box<T> to a Box<U> where T implements U.
 impl<T: ?Sized+Unsize<U>, U: ?Sized> CoerceUnsized<Box<U>> for Box<T> {}
 
@@ -44,10 +70,9 @@ impl <T: ?Sized> Drop for Box<T> {
     /// that we manually drop the contents of the box, otherwise they may
     /// be lost forever.
     fn drop(&mut self) {
-        trace!("dropping {:p}", self.0 as *const ());
-
         // If we haven't already been dropped, drop the box contents and deallocate the storage.
         if self.0 as *const () as usize != mem::POST_DROP_USIZE {
+            trace!("dropping {:p}", self.0 as *const ());
             unsafe { drop_in_place(&mut *self.0) };
             ::deallocate(unsafe { Unique::new(self.0) });
         }

@@ -23,6 +23,7 @@
 #[macro_use] extern crate mutex;
 
 pub mod boxed;
+pub mod rc;
 mod lmm;
 
 use core::prelude::*;
