@@ -15,6 +15,7 @@ extern crate alloc;
 extern crate sched;
 extern crate task;
 extern crate mem;
+extern crate devices;
 
 use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc};
@@ -50,16 +51,17 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     mem::init(hdr);
     
     // Initialize all devices.
-    //devices::init();
+    devices::init();
 
     // Initialize the scheduler.
     sched::init();
 
+    // Do nothing.
+    loop { }
+    
     test_boxes();
     test_rc();
 
-    // Do nothing.
-    loop { }
 
     // Create some threads.
     let t1 = Thread::new(threadfn).unwrap();

@@ -1,9 +1,11 @@
-mod dev;
-
+use alloc::boxed::Box;
+use alloc::rc::Rc;
 use core::prelude::*;
-use core::mem;
-use core::fmt;
+use core::{fmt, mem};
+use core::fmt::Debug;
 use util::asm;
+use collections::vec::Vec;
+use super::{Driver, Device, DeviceClass, DevicesCtx};
 logger_init!(Trace);
 
 const CONFIG_ADDRESS: u16 = 0xCF8;
@@ -42,7 +44,7 @@ struct Header {
 }
 
 impl Header {
-    fn new (addr: DeviceAddress) -> Header {
+    fn new (addr: PCIAddress) -> Header {
         let mut raw: [u32; 4] = [0; 4];
         for i in 0 .. 4 {
             raw[i] = read_dword(addr, 4*i as u8);
@@ -62,15 +64,15 @@ bitflags! {
 }
 
 #[derive(Clone, Copy)]
-struct DeviceAddress {
+struct PCIAddress {
     bus: u8,
     device: u8,
     function: u8,
 }
 
-impl DeviceAddress {
-    pub fn new(bus: u8, device: u8, function: u8) -> DeviceAddress {
-        DeviceAddress {
+impl PCIAddress {
+    pub fn new(bus: u8, device: u8, function: u8) -> PCIAddress {
+        PCIAddress {
             bus: bus,
             device: device,
             function: function,
@@ -90,21 +92,21 @@ impl DeviceAddress {
     }
 }
 
-impl fmt::Debug for DeviceAddress {
+impl fmt::Debug for PCIAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}:{}:{})", self.bus, self.device, self.function)
     }
 }
 
 /// Reads a double-word from the PCI configuration space for a given device.
-fn read_dword(addr: DeviceAddress, offset: u8) -> u32 {
+fn read_dword(addr: PCIAddress, offset: u8) -> u32 {
     let addr = addr.get_config_address(offset);
     asm::outb32(CONFIG_ADDRESS, addr.bits);
     asm::inb32(CONFIG_DATA)
 }
 
 /// Reads a word from the PCI configuration space for a given device.
-fn read_word(addr: DeviceAddress, offset: u8) -> u16 {
+fn read_word(addr: PCIAddress, offset: u8) -> u16 {
     assert!(is_aligned!(offset, 2));
     let dword = read_dword(addr, align!(offset, 4));
     if is_aligned!(offset, 4) {
@@ -115,7 +117,7 @@ fn read_word(addr: DeviceAddress, offset: u8) -> u16 {
 }
 
 /// Reads a byte from the PCI configuration space for a given device.
-fn read_byte(addr: DeviceAddress, offset: u8) -> u8 {
+fn read_byte(addr: PCIAddress, offset: u8) -> u8 {
     let word = read_word(addr, align!(offset, 2));
     if is_aligned!(offset, 2) {
         word as u8
@@ -124,17 +126,8 @@ fn read_byte(addr: DeviceAddress, offset: u8) -> u8 {
     }
 }
 
-/*
-fn find_driver(hdr: Header) -> Box<PCIDevice> {
-    match (hdr.class, hdr.subclass) {
-        (0x01, 0x01) => Box::new(IDEDevice::new(addr, hdr)),
-        _ => Box::new(UnknownDevice::new(addr, hdr))
-    }
-}
-*/
-
 /// Checks if there is a device at the given PCI address.
-fn scan_device(addr: DeviceAddress)  {
+fn scan_device(addr: PCIAddress)  {
     let vendor_id = read_word(addr, VENDOR_OFFSET);
     if vendor_id != NOT_PRESENT {
         let hdr = Header::new(addr);
@@ -147,16 +140,25 @@ pub fn scan_bus() {
     for bus in 0 .. 256 {
         for dev in 0 .. 32 {
             for fun in 0 .. 8 {
-                scan_device(DeviceAddress::new(bus as u8, dev as u8, fun as u8));
+                scan_device(PCIAddress::new(bus as u8, dev as u8, fun as u8));
             }
         }
     }
 }
 
+#[derive(Debug)]
+struct PCIDriver;
 
-/// Initializes the PCI subsystem.
-pub fn init() {
-    
-      
+impl Driver for PCIDriver {
+    fn get_device(&self) -> Option<Box<Device>> { None }
+    fn get_devices(&self) -> Option<Vec<Box<Device>>> { None }
+    fn get_device_class(&self) -> Option<DeviceClass> { None }
+    fn create_device(&self, parent: Rc<Device>) -> Option<Box<Device>> { None }
+}
+
+/// Initializes the PCI subsystem and registers any PCI drivers with the driver registry.
+pub fn init(ctx: &mut DevicesCtx) {
+   
+    ctx.register_driver(Box::new(PCIDriver).unwrap());
 
 }

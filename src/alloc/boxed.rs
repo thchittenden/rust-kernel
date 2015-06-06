@@ -86,7 +86,7 @@ impl<T: ?Sized> Deref for Box<T> {
     }
 }
 
-impl<T> DerefMut for Box<T> {
+impl<T: ?Sized> DerefMut for Box<T> {
     fn deref_mut(&mut self) -> &mut T { 
         unsafe { &mut *self.0 }
     }

@@ -1,6 +1,6 @@
 #![crate_name="collections"]
 #![crate_type="rlib"]
-#![feature(no_std,core)]
+#![feature(no_std,core,filling_drop)]
 #![no_std]
 //!
 //! This module contains definitions of various collections used in the kernel. 
@@ -23,3 +23,8 @@ mod raw;
 /// A linked list interface.
 pub mod linkedlist;
 
+/// A hash map.
+pub mod hashmap;
+
+/// A vector.
+pub mod vec;

@@ -83,27 +83,46 @@ impl LMMAllocator {
 
 }
 
+/// An address for 0-sized allocations.
+static EMPTY: () = ();
+
 impl Allocator for LMMAllocator {
 
     fn allocate_raw(&mut self, size: usize, align: usize) -> Option<usize> {
         trace!("trying to allocate {} bytes aligned to {:x}", size, align);
-        let align_bits = align_bits(align) as u32;
-        let align_ofs = 0;
-        match unsafe { lmm_alloc_aligned(&mut self.lmm, size, ALLOC_FLAGS, align_bits, align_ofs) } {
-            0 => {
-                trace!("could not allocate {} bytes", size);
-                None
-            }
-            x => {
-                trace!("allocated {} bytes at 0x{:x}", size, x);
-                Some(x)
+        
+        if size == 0 {
+            // If the allocation is 0 bytes, LMM can't handle it so we just give it a dummy
+            // address.
+            trace!("allocated 0 bytes at {:p}", &EMPTY);
+            return Some(&EMPTY as *const () as usize);
+        } else {
+            // Otherwise we go to LMM for the allocation.
+            let align_bits = align_bits(align) as u32;
+            let align_ofs = 0;
+            match unsafe { lmm_alloc_aligned(&mut self.lmm, size, ALLOC_FLAGS, align_bits, align_ofs) } {
+                0 => {
+                    trace!("could not allocate {} bytes", size);
+                    None
+                }
+                x => {
+                    trace!("allocated {} bytes at 0x{:x}", size, x);
+                    Some(x)
+                }
             }
         }
     }
 
     fn deallocate_raw(&mut self, addr: usize, size: usize) {
         trace!("freeing {} bytes at 0x{:x}", size, addr);
-        unsafe { lmm_free(&mut self.lmm, addr, size) }
-    }
+        
+        // Only free if this is not a 0 byte allocation. If it is 0 bytes, it better be a pointer
+        // to EMPTY or else we didn't allocate it!
+        if size != 0 {
+            unsafe { lmm_free(&mut self.lmm, addr, size) }
+        } else {
+            assert!(addr == &EMPTY as *const () as usize);
+        }
+    } 
 
 }
