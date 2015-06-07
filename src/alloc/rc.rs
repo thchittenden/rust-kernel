@@ -3,11 +3,11 @@ use core::atomic::{AtomicUsize, Ordering};
 use core::ops::Deref;
 use core::fmt;
 use boxed::Box;
+use util::link::{DoubleLink, HasDoubleLink};
+use util::Pointer;
 
 pub trait HasRc {
-    
     fn get_count(&self) -> &AtomicUsize;
-
 }
 
 pub struct Rc<T: ?Sized + HasRc> {
@@ -60,3 +60,26 @@ impl <T: ?Sized + HasRc + fmt::Debug> fmt::Debug for Rc<T> {
     }
 
 }
+
+pub struct RcLinked<T: ?Sized + HasRc> {
+    rc: Rc<T>,
+    node: DoubleLink<T, RcLinked<T>>
+}
+
+impl<T: ?Sized + HasRc> Pointer for RcLinked<T> {
+    type To = T;
+    fn as_ref(&self) -> &T { self.rc.deref() }
+    fn as_mut(&mut self) -> &mut T { self.rc.deref_mut() }
+}
+
+impl<T: ?Sized + HasRc> HasDoubleLink for RcLinked<T> {
+    type T = T;
+    type P = RcLinked<T>;
+    fn dlink(&self) -> &DoubleLink<T, RcLinked<T>> {
+        &self.node
+    }
+    fn dlink_mut(&mut self) -> &mut DoubleLink<T, RcLinked<T>> {
+        &mut self.node
+    }
+}
+

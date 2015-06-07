@@ -11,20 +11,17 @@
 //!
 
 #[macro_use] extern crate core;
+extern crate util;
 extern crate alloc;
 
-/// The `Node` object used by various collections.
-pub mod node;
+/// A dynamically resizable array.
+pub mod dynarray;
 
-/// The `Raw` pointer that allows circular references in collections. This should absolutely not be
-/// public as it circumvents all uniqueness guarantees for `Box`!
-mod raw;
-
-/// A linked list interface.
+/// An owning linked list.
 pub mod linkedlist;
 
-/// A hash map.
-pub mod hashmap;
+/// A separately-chained hash map.
+//pub mod hashmap;
 
 /// A vector.
 pub mod vec;

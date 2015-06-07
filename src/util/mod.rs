@@ -12,6 +12,10 @@ pub mod global;
 pub mod logger;
 pub mod multiboot;
 pub mod rawbox;
+pub mod link;
+pub mod raw;
+
+use core::prelude::*;
 
 pub const NULL_SEGMENT: u16 = 0x0000;
 pub const KERNEL_CODE_SEGMENT: u16 = 0x0008;
@@ -21,6 +25,19 @@ pub const USER_DATA_SEGMENT: u16 = 0x0020;
 
 pub const PAGE_SIZE: usize = 0x1000;
 pub const PAGE_SHIFT: usize = 12;
+
+/// A trait for indicating that a type points to another type.
+pub trait Pointer { 
+
+    /// The type this pointer points to.
+    type To: ?Sized;
+
+    /// Get the pointer to the underlying object.
+    fn as_ref(&self) -> &Self::To;
+
+    /// Get a mutable pointer to the underlying object.
+    fn as_mut(&mut self) -> &mut Self::To;
+}
 
 #[macro_export]
 macro_rules! getbyte {

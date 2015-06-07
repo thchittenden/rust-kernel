@@ -6,6 +6,7 @@
 //! More information can be found here: http://www.cs.utah.edu/flux/oskit/html/oskit-wwwch25.html
 //!
 use core::prelude::*;
+use core::intrinsics::volatile_copy_memory;
 use util::align_bits;
 use Allocator;
 logger_init!(Trace);
@@ -111,6 +112,19 @@ impl Allocator for LMMAllocator {
                 }
             }
         }
+    }
+
+    fn reallocate_raw(&mut self, old_addr: usize, old_size: usize, new_size: usize, align: usize) -> Result<usize, usize> {
+        // LMM does not actually contain a realloc function so we are limited to just trying a new
+        // allocation, copying bytes, and freeing the old one.
+        self.allocate_raw(new_size, align).map(|new_addr| {
+            // The allocation succeeded, copy bytes and free the old one.
+            let src = old_addr as *mut u8;
+            let dst = new_addr as *mut u8;
+            unsafe { volatile_copy_memory(dst, src, old_size) };
+            self.deallocate_raw(old_addr, old_size);
+            new_addr
+        }).ok_or(old_addr)
     }
 
     fn deallocate_raw(&mut self, addr: usize, size: usize) {

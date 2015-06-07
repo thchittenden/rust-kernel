@@ -5,13 +5,14 @@
 //! Care must be taken when constructing these that dangling Raw pointers aren't left around
 //! because as soon as the Box leaves the collection, it is assumed to be unique!
 //!
+use core::prelude::*;
 use core::ops::{Deref, DerefMut};
 
-pub struct Raw<T> {
+pub struct Raw<T: ?Sized> {
     ptr: *mut T
 }
 
-impl<T> Raw<T> {
+impl<T: ?Sized> Raw<T> {
     pub unsafe fn new(t: &mut T) -> Raw<T> {
         Raw { ptr: t as *mut T }
    }
@@ -20,14 +21,14 @@ impl<T> Raw<T> {
     }
 }
 
-impl<T> Deref for Raw<T> {
+impl<T: ?Sized> Deref for Raw<T> {
     type Target = T;
     fn deref(&self) -> &T {
         unsafe { &*self.ptr }
     }
 }
 
-impl<T> DerefMut for Raw<T> {
+impl<T: ?Sized> DerefMut for Raw<T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.ptr }
     }

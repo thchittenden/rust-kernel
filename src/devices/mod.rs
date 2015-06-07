@@ -139,7 +139,7 @@ impl DevicesCtx {
         
         // Insert the device into the devices_class_map and the devices_id_map.
         let rc = Rc::new(device);
-        self.devices_class_map.lookup_or_insert_mut(class, || Vec::new()).append(rc.clone());
+        self.devices_class_map.lookup_or_insert_mut(class, || Vec::new(4).unwrap()).push(rc.clone());
         self.devices_id_map.insert(id, rc.clone());
 
         // If we can cast this device to a bus, enumerate it.

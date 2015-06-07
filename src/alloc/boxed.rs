@@ -12,6 +12,8 @@ use core::fmt;
 use core::ops::{Deref, DerefMut, CoerceUnsized};
 use core::marker::{Unsize};
 use core::intrinsics::drop_in_place;
+use util::Pointer;
+use util::link::{HasDoubleLink, DoubleLink};
 logger_init!(Trace);
 
 /// A pointer type for heap allocations.
@@ -64,6 +66,13 @@ impl<T: ?Sized> Box<T> {
 
 /// Allow casting from a Box<T> to a Box<U> where T implements U.
 impl<T: ?Sized+Unsize<U>, U: ?Sized> CoerceUnsized<Box<U>> for Box<T> {}
+
+/// Indicate that this box is a pointer to a T.
+impl<T> Pointer for Box<T> { 
+    type To = T;
+    fn as_ref(&self) -> &T { self.deref() }
+    fn as_mut(&mut self) -> &mut T { self.deref_mut() }
+}
 
 impl <T: ?Sized> Drop for Box<T> {
     /// Deallocates the pointer on the heap. We must pay special attention
@@ -153,4 +162,16 @@ impl<I: DoubleEndedIterator> DoubleEndedIterator for Box<I> {
 }
 
 impl<I: ExactSizeIterator> ExactSizeIterator for Box<I> {}
+
+/// If a type has a link, then boxing the type has the link.
+impl<T: HasDoubleLink<T=T, P=P>, P: Pointer<To=T>> HasDoubleLink for Box<T> {
+    type T = T;
+    type P = P;
+    fn dlink(&self) -> &DoubleLink<T, P> {
+        self.deref().dlink()
+    }
+    fn dlink_mut(&mut self) -> &mut DoubleLink<T, P> {
+        self.deref_mut().dlink_mut()
+    }
+}
 

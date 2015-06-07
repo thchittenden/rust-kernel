@@ -15,8 +15,10 @@ extern crate alloc;
 extern crate sched;
 extern crate task;
 extern crate mem;
-extern crate devices;
+//extern crate devices;
+extern crate collections;
 
+use collections::vec::Vec;
 use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc};
 use core::prelude::*;
@@ -26,6 +28,7 @@ use core::fmt;
 use util::multiboot::MultibootHeader;
 use interrupt::{timer, BREAKPOINT_IRQ, Regs, IRet};
 use task::thread::Thread;
+use util::link::{DoubleLink, HasDoubleLink};
 logger_init!(Trace);
 
 /// The kernel entry point. This should never return.
@@ -51,18 +54,18 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     mem::init(hdr);
     
     // Initialize all devices.
-    devices::init();
+   // devices::init();
 
     // Initialize the scheduler.
     sched::init();
 
+    test_boxes();
+    test_rc();
+    test_vec();
+
     // Do nothing.
     loop { }
     
-    test_boxes();
-    test_rc();
-
-
     // Create some threads.
     let t1 = Thread::new(threadfn).unwrap();
     let t2 = Thread::new(threadfn).unwrap();
@@ -141,9 +144,43 @@ fn test_rc() {
     trace!("rcx2: {:?}", rcx2);
 
     drop(rcx1);
+
+    trace!("rcx2 still live: {:?}", rcx2);
+
     drop(rcx2);
 }
 
 fn test_unsized(a: Box<Foo>) {
     drop(a)
+}
+
+fn test_vec() {
+    trace!("\ntesting vec");
+    let mut x = Vec::new(4).unwrap();
+
+    for i in 10 .. 20 {
+        trace!("pushing {}", i);
+        let suc = x.push(i);
+        assert!(suc);
+    }
+    
+    for i in 19 .. 9 {
+        assert!(x.pop().unwrap() == i);
+    }
+}
+
+struct X {
+    x: DoubleLink<X, Box<X>>
+}
+
+impl HasDoubleLink for X {
+    type T = X;
+    type P = Box<X>;
+    fn dlink(&self) 
+}
+
+fn test_linkedlist() {
+
+
+
 }

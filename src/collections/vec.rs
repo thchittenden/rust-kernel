@@ -1,6 +1,7 @@
 use core::prelude::*;
 use core::ops::{Index, IndexMut};
 use core::{ptr, mem, marker};
+use alloc::{allocate_raw, deallocate_raw, reallocate_raw};
 
 pub struct IntoIter<T> {
     raw: *mut T,
@@ -37,8 +38,11 @@ impl<T> Iterator for IntoIter<T> {
 
 impl<T> Drop for IntoIter<T> {
     fn drop(&mut self) {
+        // If we haven't already been dropped, deallocate the space.
         if self.idx != mem::POST_DROP_USIZE {
-            unimplemented!();
+            let addr = self.raw as usize;
+            let size = self.len * mem::size_of::<T>();
+            deallocate_raw(addr, size);
         }
     }
 }
@@ -77,8 +81,17 @@ pub struct Vec<T> {
 
 impl<T> Vec<T> {
     
-    pub fn new() -> Vec<T> {
-        unimplemented!()
+    pub fn new(capacity: usize) -> Option<Vec<T>> {
+        let size = capacity * mem::size_of::<T>();
+        let align = mem::min_align_of::<T>();
+        let alloc = allocate_raw(size, align);
+        alloc.map(|addr| {
+            Vec {
+                raw: addr as *mut T,
+                cap: capacity,
+                len: 0
+            }
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -86,10 +99,50 @@ impl<T> Vec<T> {
     }
 
     #[must_use]
-    pub fn append(&mut self, val: T) -> bool {
-        unimplemented!()
+    pub fn push(&mut self, val: T) -> bool {
+        if self.len < self.cap {
+            // Have enough space, just perform the write.
+            unsafe { ptr::write(self.raw.offset(self.len as isize), val) };
+            self.len += 1;
+            true
+        } else {
+            // Need to reallocate!
+            let old_addr = self.raw as usize;
+            let old_size = self.cap * mem::size_of::<T>();
+            let new_size = old_size * 2; // TODO 2?
+            let align = mem::min_align_of::<T>();
+            match reallocate_raw(old_addr, old_size, new_size, align) {
+                Ok(new_addr) => {
+                    self.raw = new_addr as *mut T;
+                    self.cap *= 2;
+                    unsafe { ptr::write(self.raw.offset(self.len as isize), val) };
+                    self.len += 1;
+                    true
+                }
+                Err(_) => false
+            }
+        }
     }
 
+    pub fn pop(&mut self) -> Option<T>  {
+        if self.len > 0 {
+            let res = unsafe { ptr::read(self.raw.offset(self.len as isize)) };
+            self.len -= 1;
+            Some(res)
+        } else {
+            None
+        }
+    }
+
+}
+
+impl<T> Drop for Vec<T> {
+    fn drop(&mut self) {
+        if self.len != mem::POST_DROP_USIZE {
+            let size = self.cap * mem::size_of::<T>();
+            deallocate_raw(self.raw as usize, size);
+        }
+    }
 }
 
 impl<T> IntoIterator for Vec<T> {

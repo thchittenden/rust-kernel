@@ -15,7 +15,7 @@ use core::prelude::*;
 use core::atomic::{AtomicIsize, ATOMIC_ISIZE_INIT, Ordering};
 use core::mem;
 use alloc::boxed::Box;
-use collections::node::{Node, HasNode};
+use util::link::{DoubleLink, HasDoubleLink};
 use util::asm;
 logger_init!(Trace);
 
@@ -43,7 +43,7 @@ pub struct Thread {
     stack_cur: usize, 
     stack_top: usize,
     stack_bottom: usize, // This MUST be at offset 0x10
-    sched_node: Node<Thread>,
+    sched_node: DoubleLink<Thread, Box<Thread>>,
     threadfn: fn() -> !,
     stack: [usize; STACK_SIZE]
 }
@@ -54,7 +54,7 @@ impl Thread {
         Box::emplace(|thread: &mut Thread| {
             thread.tid = NEXT_TID.fetch_add(1, Ordering::Relaxed) as i32;
             thread.pid = 0;
-            thread.sched_node = Node { next: None, prev: None };
+            thread.sched_node = Default::default();
             thread.threadfn = f;
             thread.stack_cur = &thread.stack[ESI_OFFSET] as *const usize as usize;
             thread.stack_top = &thread.stack[STACK_TOP] as *const usize as usize;
@@ -75,11 +75,13 @@ impl Thread {
 
 }
 
-impl HasNode<Thread> for Thread {
-    fn node(&self) -> &Node<Thread> {
+impl HasDoubleLink for Thread {
+    type T=Thread;
+    type P=Box<Thread>;
+    fn dlink(&self) -> &DoubleLink<Thread, Box<Thread>> {
         &self.sched_node
     }
-    fn node_mut(&mut self) -> &mut Node<Thread> {
+    fn dlink_mut(&mut self) -> &mut DoubleLink<Thread, Box<Thread>> {
         &mut self.sched_node
     }
 }

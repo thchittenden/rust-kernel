@@ -39,14 +39,17 @@ pub fn init(hdr: &MultibootHeader) {
     phys::init();
     virt::init();
     hdr.walk_mmap(add_range_safe);
+    
+    trace!("direct mapping kernel");
     direct_map_kernel(); 
+
+    trace!("enabling paging...");
     set_cr3(KPD.borrow() as *const PageDirectory as usize);
     enable_global_pages();
     enable_paging();
 }
 
 fn direct_map_kernel() {
-    trace!("direct mapping kernel");
     let mut pd = PageDirectory::new().expect("unable to allocate global page directory");
     let pt0 = PageTable::new().expect("unable to allocate global page table 1");
     let pt1 = PageTable::new().expect("unable to allocate global page table 2");

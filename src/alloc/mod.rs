@@ -44,6 +44,10 @@ trait Allocator {
     /// allocation if successful and `None` otherwise.
     fn allocate_raw(&mut self, size: usize, align: usize) -> Option<usize>;
 
+    /// Tries to reallocate the allocation at `addr` so that it can allocate `size` bytes. If more
+    /// appropriate slot cannot be found, returns the original allocation.
+    fn reallocate_raw(&mut self, old_addr: usize, old_size: usize, new_size: usize, align: usize) -> Result<usize, usize>;
+
     /// Frees `size` bytes of allocated memory located at `addr`. 
     fn deallocate_raw(&mut self, addr: usize, size: usize);
 
@@ -92,6 +96,26 @@ pub fn init() {
     let heap_start = linker_sym!(__heap_start);
     let heap_end = linker_sym!(__heap_end);
     ALLOCATOR.lock().init(heap_start, heap_end);
+}
+
+/// Tries to allocate space on the heap and returns a unique pointer to it.
+///
+/// # Failures
+///
+/// Fails if the heap cannot find a slot big enough to accomodate the requested object.
+pub extern fn allocate_raw(size: usize, align: usize) -> Option<usize> {
+    ALLOCATOR.lock().allocate_raw(size, align)
+}
+
+/// Tries to reallocate a space on the heap to accomodate a new size. Returns Ok(addr) if succesful
+/// or Err(old_addr) if unsuccesful.
+pub extern fn reallocate_raw(old_addr: usize, old_size: usize, new_size: usize, align: usize) -> Result<usize, usize> {
+    ALLOCATOR.lock().reallocate_raw(old_addr, old_size, new_size, align)
+}   
+
+/// Deallocates a space on the heap. 
+pub extern fn deallocate_raw(addr: usize, size: usize) {
+    ALLOCATOR.lock().deallocate_raw(addr, size)
 }
 
 /// Tries to allocate an object to the heap and returns a unique pointer to it.

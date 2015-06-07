@@ -7,6 +7,7 @@
 #[macro_use] extern crate collections;
 #[macro_use] extern crate mutex;
 #[macro_use] extern crate task;
+extern crate alloc;
 
 #[macro_use] pub mod condvar;
 #[macro_use] pub mod semaphore;
