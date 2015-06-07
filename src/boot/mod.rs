@@ -28,7 +28,6 @@ use core::fmt;
 use util::multiboot::MultibootHeader;
 use interrupt::{timer, BREAKPOINT_IRQ, Regs, IRet};
 use task::thread::Thread;
-use util::link::{DoubleLink, HasDoubleLink};
 logger_init!(Trace);
 
 /// The kernel entry point. This should never return.
@@ -169,18 +168,3 @@ fn test_vec() {
     }
 }
 
-struct X {
-    x: DoubleLink<X, Box<X>>
-}
-
-impl HasDoubleLink for X {
-    type T = X;
-    type P = Box<X>;
-    fn dlink(&self) 
-}
-
-fn test_linkedlist() {
-
-
-
-}

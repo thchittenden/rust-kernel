@@ -14,6 +14,14 @@
 extern crate util;
 extern crate alloc;
 
+/// A link typed used by various collections.
+pub mod link;
+
+/// An aliasable mutable pointer. This completely subverts all safety provided by Rust but makes it
+/// a lot more convenient to deal with circular data structures! It should not be exported as Raw
+/// pointers should NEVER escape this module.
+mod raw;
+
 /// A dynamically resizable array.
 pub mod dynarray;
 

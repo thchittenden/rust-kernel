@@ -4,15 +4,16 @@
 //! In the linked list, the next pointer always points towards the tail and the previous pointer
 //! always points to towards the head.
 //!
+use alloc::boxed::Box;
 use core::prelude::*;
-use util::raw::Raw;
-use util::link::HasDoubleLink;
-use util::Pointer;
+use core::ops::DerefMut;
+use super::raw::Raw;
+use super::link::HasDoubleLink;
 
 /// A queue.
-pub struct LinkedList<T: HasDoubleLink<T=T, P=P>, P: Pointer<To=T>> {
+pub struct LinkedList<T: HasDoubleLink<T=T>> {
     pub len: usize,
-    pub head: Option<P>,
+    pub head: Option<Box<T>>,
     pub tail: Option<Raw<T>>
 }
 
@@ -28,24 +29,24 @@ macro_rules! static_linkedlist {
     });
 }
 
-impl<T: HasDoubleLink<T=T, P=P>, P: Pointer<To=T> + HasDoubleLink<T=T,P=P>> LinkedList<T, P> {
+impl<T: HasDoubleLink<T=T>> LinkedList<T> {
    
     /// Creates a new empty queue.
-    pub fn new() -> LinkedList<T, P> {
+    pub fn new() -> LinkedList<T> {
         static_linkedlist!()
     }
 
-    pub fn push_head(&mut self, mut new_head: P) {
+    pub fn push_head(&mut self, mut new_head: Box<T>) {
         assert!(new_head.dlink().next.link.is_none());
         assert!(new_head.dlink().prev.is_none());
         assert!(self.head.is_none() == self.tail.is_none());
         match self.head.take() {
             None => {
-                self.tail = Some(unsafe { Raw::new(new_head.as_mut()) });
+                self.tail = Some(unsafe { Raw::new(new_head.deref_mut()) });
                 self.head = Some(new_head);
             }
             Some(mut head) => {
-                head.dlink_mut().prev = Some(unsafe { Raw::new(new_head.as_mut()) });
+                head.dlink_mut().prev = Some(unsafe { Raw::new(new_head.deref_mut()) });
                 new_head.dlink_mut().next.link = Some(head);
                 self.head = Some(new_head);
             }
@@ -54,25 +55,25 @@ impl<T: HasDoubleLink<T=T, P=P>, P: Pointer<To=T> + HasDoubleLink<T=T,P=P>> Link
     }
 
     
-    pub fn push_tail(&mut self, mut new_tail: P) {
+    pub fn push_tail(&mut self, mut new_tail: Box<T>) {
         assert!(new_tail.dlink().next.link.is_none());
         assert!(new_tail.dlink().prev.is_none());
         assert!(self.head.is_none() == self.tail.is_none());
         match self.tail.take() {
             None => {
-                self.tail = Some(unsafe { Raw::new(new_tail.as_mut()) });
+                self.tail = Some(unsafe { Raw::new(new_tail.deref_mut()) });
                 self.head = Some(new_tail);
             }
             Some(mut tail) => {
                 new_tail.dlink_mut().prev = Some(tail.clone());
-                self.tail = Some(unsafe { Raw::new(new_tail.as_mut()) });
+                self.tail = Some(unsafe { Raw::new(new_tail.deref_mut()) });
                 tail.dlink_mut().next.link = Some(new_tail);
             }
         }
         self.len += 1;
     }
 
-    pub fn pop_head(&mut self) -> Option<P> {
+    pub fn pop_head(&mut self) -> Option<Box<T>> {
         assert!(self.head.is_none() == self.tail.is_none());
         self.head.take().map(|mut head| {
             match head.dlink_mut().next.link.take() {
@@ -94,7 +95,7 @@ impl<T: HasDoubleLink<T=T, P=P>, P: Pointer<To=T> + HasDoubleLink<T=T,P=P>> Link
         })
     }
 
-    pub fn pop_tail(&mut self) -> Option<P> {
+    pub fn pop_tail(&mut self) -> Option<Box<T>> {
         assert!(self.head.is_none() == self.tail.is_none());
         self.tail.take().map(|mut tail| {
             let tail = match tail.dlink_mut().prev.take() {
@@ -130,8 +131,8 @@ impl<T: HasDoubleLink<T=T, P=P>, P: Pointer<To=T> + HasDoubleLink<T=T,P=P>> Link
 
 }
 
-impl<T: HasDoubleLink<T=T, P=P>, P: Pointer<To=T>> Default for LinkedList<T, P> {
-    fn default() -> LinkedList<T, P> {
+impl<T: HasDoubleLink<T=T>> Default for LinkedList<T> {
+    fn default() -> LinkedList<T> {
         static_linkedlist!()
     }
 }

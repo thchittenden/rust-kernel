@@ -1,10 +1,9 @@
-use alloc::boxed::Box;
 use collections::linkedlist::LinkedList;
 use mutex::{Mutex, MutexGuard};
 use task::thread::Thread;
 
 pub struct CondVar {
-    pub linkedlist: Mutex<LinkedList<Thread, Box<Thread>>>
+    pub linkedlist: Mutex<LinkedList<Thread>>
 }
 
 macro_rules! static_condvar {

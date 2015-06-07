@@ -11,11 +11,11 @@
 //!
 //! LLVM should really support custom targets!
 //!
+use alloc::boxed::Box;
 use core::prelude::*;
 use core::atomic::{AtomicIsize, ATOMIC_ISIZE_INIT, Ordering};
 use core::mem;
-use alloc::boxed::Box;
-use util::link::{DoubleLink, HasDoubleLink};
+use collections::link::{DoubleLink, HasDoubleLink};
 use util::asm;
 logger_init!(Trace);
 
@@ -43,7 +43,7 @@ pub struct Thread {
     stack_cur: usize, 
     stack_top: usize,
     stack_bottom: usize, // This MUST be at offset 0x10
-    sched_node: DoubleLink<Thread, Box<Thread>>,
+    sched_node: DoubleLink<Thread>,
     threadfn: fn() -> !,
     stack: [usize; STACK_SIZE]
 }
@@ -77,11 +77,10 @@ impl Thread {
 
 impl HasDoubleLink for Thread {
     type T=Thread;
-    type P=Box<Thread>;
-    fn dlink(&self) -> &DoubleLink<Thread, Box<Thread>> {
+    fn dlink(&self) -> &DoubleLink<Thread> {
         &self.sched_node
     }
-    fn dlink_mut(&mut self) -> &mut DoubleLink<Thread, Box<Thread>> {
+    fn dlink_mut(&mut self) -> &mut DoubleLink<Thread> {
         &mut self.sched_node
     }
 }

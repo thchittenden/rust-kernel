@@ -29,7 +29,7 @@ extern {
 
 struct Scheduler {
     thread: Option<Box<Thread>>,
-    runnable: LinkedList<Thread, Box<Thread>>,
+    runnable: LinkedList<Thread>,
 }
 
 static SCHED: SchedLock<Scheduler> = static_schedlock!(Scheduler {
