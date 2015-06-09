@@ -30,5 +30,7 @@ pub fn test() {
     let y = Box::new(X { key: 4, val: 5, node: DoubleLink::default() }).unwrap();
     map.insert(x);
     map.insert(y);
+    assert!(map.remove(&3).unwrap().val == 4);
+    assert!(map.remove(&4).unwrap().val == 5);
 }
 
