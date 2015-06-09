@@ -1,78 +1,12 @@
+//!
+//! This module contains a growable vector.
+//!
 use core::prelude::*;
 use core::ops::{Index, IndexMut};
 use core::{ptr, mem, marker};
 use alloc::{allocate_raw, deallocate_raw, reallocate_raw};
 
-pub struct IntoIter<T> {
-    raw: *mut T,
-    idx: usize,
-    len: usize,
-}
-
-pub struct Iter<'a, T: 'a> {
-    raw: *const T,
-    idx: usize,
-    len: usize,
-    _marker: marker::PhantomData<&'a T>
-}
-
-pub struct IterMut<'a, T: 'a> {
-    raw: *mut T,
-    idx: usize,
-    len: usize,
-    _marker: marker::PhantomData<&'a mut T>
-}
-
-impl<T> Iterator for IntoIter<T> {
-    type Item = T;
-    fn next(&mut self) -> Option<T> {
-        if self.idx == self.len {
-            None
-        } else {
-            let res = Some(unsafe { ptr::read(self.raw.offset(self.idx as isize)) });
-            self.idx += 1;
-            res
-        }
-    }
-}
-
-impl<T> Drop for IntoIter<T> {
-    fn drop(&mut self) {
-        // If we haven't already been dropped, deallocate the space.
-        if self.idx != mem::POST_DROP_USIZE {
-            let addr = self.raw as usize;
-            let size = self.len * mem::size_of::<T>();
-            deallocate_raw(addr, size);
-        }
-    }
-}
-
-impl<'a, T> Iterator for Iter<'a, T> {
-    type Item = &'a T;
-    fn next(&mut self) -> Option<&'a T> {
-        if self.idx == self.len {
-            None 
-        } else {
-            let res = Some(unsafe { &*self.raw.offset(self.idx as isize) });
-            self.idx += 1;
-            res
-        }
-    }
-}
-
-impl<'a, T> Iterator for IterMut<'a, T> {
-    type Item = &'a mut T;
-    fn next(&mut self) -> Option<&'a mut T> {
-        if self.idx == self.len {
-            None
-        } else {
-            let res = Some(unsafe { &mut *self.raw.offset(self.idx as isize) });
-            self.idx += 1;
-            res
-        }
-    }
-}
-
+/// A growable vector.
 pub struct Vec<T> {
     raw: *mut T,
     cap: usize,
@@ -81,6 +15,7 @@ pub struct Vec<T> {
 
 impl<T> Vec<T> {
     
+    /// Creates a new vector with the given capacity.
     pub fn new(capacity: usize) -> Option<Vec<T>> {
         let size = capacity * mem::size_of::<T>();
         let align = mem::min_align_of::<T>();
@@ -94,17 +29,20 @@ impl<T> Vec<T> {
         })
     }
 
+    /// Returns the current number of elements in the vector.
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Attempts to push an element onto the queue. If the vector cannot allocate enough space to
+    /// grow it returns Err(val), otherwise it returns Ok(())
     #[must_use]
-    pub fn push(&mut self, val: T) -> bool {
+    pub fn push(&mut self, val: T) -> Result<(), T> {
         if self.len < self.cap {
             // Have enough space, just perform the write.
             unsafe { ptr::write(self.raw.offset(self.len as isize), val) };
             self.len += 1;
-            true
+            Ok(())
         } else {
             // Need to reallocate!
             let old_addr = self.raw as usize;
@@ -117,13 +55,15 @@ impl<T> Vec<T> {
                     self.cap *= 2;
                     unsafe { ptr::write(self.raw.offset(self.len as isize), val) };
                     self.len += 1;
-                    true
+                    Ok(())
                 }
-                Err(_) => false
+                Err(_) => Err(val)
             }
         }
     }
 
+    /// Attempts to pop an element from the vector. If the vector is empty, returns None, otherwise
+    /// returns Some(elem).
     pub fn pop(&mut self) -> Option<T>  {
         if self.len > 0 {
             let res = unsafe { ptr::read(self.raw.offset(self.len as isize)) };
@@ -184,3 +124,78 @@ impl<T> IndexMut<usize> for Vec<T> {
         unsafe { &mut*self.raw.offset(idx as isize) }
     }
 }
+
+/// A consuming iterator.
+pub struct IntoIter<T> {
+    raw: *mut T,
+    idx: usize,
+    len: usize,
+}
+
+/// A borrowing iterator.
+pub struct Iter<'a, T: 'a> {
+    raw: *const T,
+    idx: usize,
+    len: usize,
+    _marker: marker::PhantomData<&'a T>
+}
+
+/// A mutably borrowing iterator.
+pub struct IterMut<'a, T: 'a> {
+    raw: *mut T,
+    idx: usize,
+    len: usize,
+    _marker: marker::PhantomData<&'a mut T>
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        if self.idx == self.len {
+            None
+        } else {
+            let res = Some(unsafe { ptr::read(self.raw.offset(self.idx as isize)) });
+            self.idx += 1;
+            res
+        }
+    }
+}
+
+impl<T> Drop for IntoIter<T> {
+    fn drop(&mut self) {
+        // If we haven't already been dropped, deallocate the space.
+        if self.idx != mem::POST_DROP_USIZE {
+            let addr = self.raw as usize;
+            let size = self.len * mem::size_of::<T>();
+            deallocate_raw(addr, size);
+        }
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<&'a T> {
+        if self.idx == self.len {
+            None 
+        } else {
+            let res = Some(unsafe { &*self.raw.offset(self.idx as isize) });
+            self.idx += 1;
+            res
+        }
+    }
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+    fn next(&mut self) -> Option<&'a mut T> {
+        if self.idx == self.len {
+            None
+        } else {
+            let res = Some(unsafe { &mut *self.raw.offset(self.idx as isize) });
+            self.idx += 1;
+            res
+        }
+    }
+}
+
+

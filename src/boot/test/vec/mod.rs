@@ -7,8 +7,7 @@ pub fn test() {
 
     for i in 10 .. 20 {
         trace!("pushing {}", i);
-        let suc = x.push(i);
-        assert!(suc);
+        assert!(x.push(i).is_ok());
     }
     
     for i in 19 .. 9 {

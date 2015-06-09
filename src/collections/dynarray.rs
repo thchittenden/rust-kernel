@@ -1,17 +1,23 @@
-/// This module contains the definition of a dynamically resizeable array. 
+//! This module contains the definition of a dynamically resizeable array. 
+//!
+//! The contents of the array must implement Default so that when new entries are added they can be
+//! initialized properly.
+//!
 use core::prelude::*;
 use core::{mem, ptr};
 use core::ops::{Index, IndexMut};
 use core::intrinsics::drop_in_place;
 use alloc::{allocate_raw, reallocate_raw, deallocate_raw};
 
+/// A dynamicly resizable array. 
 pub struct DynArray<T> {
     raw: *mut T,
     len: usize
 }
 
 impl<T: Default> DynArray<T> {
-    
+   
+    /// Creates a new Dynamic Array of the given size.
     pub fn new(count: usize) -> Option<DynArray<T>> {
         let size = count * mem::size_of::<T>();
         let align = mem::min_align_of::<T>();
@@ -27,6 +33,7 @@ impl<T: Default> DynArray<T> {
         })
     }
 
+    /// Attempts to change the size of the array and returns whether it was successful or not.
     #[must_use]
     pub fn resize(&mut self, new_count: usize) -> bool {
         let old_addr = self.raw as usize;
@@ -47,6 +54,7 @@ impl<T: Default> DynArray<T> {
         }
     }
 
+    /// Returns the length of the array.
     pub fn len(&self) -> usize {
         self.len
     }

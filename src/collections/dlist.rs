@@ -10,7 +10,7 @@ use core::ops::DerefMut;
 use super::raw::Raw;
 use super::link::HasDoubleLink;
 
-/// A queue.
+/// A doubly linked list.
 pub struct DList<T: HasDoubleLink<T=T>> {
     pub len: usize,
     pub head: Option<Box<T>>,
@@ -31,11 +31,12 @@ macro_rules! static_dlist {
 
 impl<T: HasDoubleLink<T=T>> DList<T> {
    
-    /// Creates a new empty queue.
+    /// Creates a new empty list.
     pub fn new() -> DList<T> {
         static_dlist!()
     }
 
+    /// Pushes an element to the head of the list.
     pub fn push_head(&mut self, mut new_head: Box<T>) {
         assert!(new_head.dlink().next.link.is_none());
         assert!(new_head.dlink().prev.is_none());
@@ -54,7 +55,7 @@ impl<T: HasDoubleLink<T=T>> DList<T> {
         self.len += 1;
     }
 
-    
+    /// Pushes an element to the tail of the list.
     pub fn push_tail(&mut self, mut new_tail: Box<T>) {
         assert!(new_tail.dlink().next.link.is_none());
         assert!(new_tail.dlink().prev.is_none());
@@ -73,6 +74,7 @@ impl<T: HasDoubleLink<T=T>> DList<T> {
         self.len += 1;
     }
 
+    /// Tries to remove an element from the head of the list.
     pub fn pop_head(&mut self) -> Option<Box<T>> {
         assert!(self.head.is_none() == self.tail.is_none());
         self.head.take().map(|mut head| {
@@ -95,6 +97,7 @@ impl<T: HasDoubleLink<T=T>> DList<T> {
         })
     }
 
+    /// Tries to remove an element from the tail of the list.
     pub fn pop_tail(&mut self) -> Option<Box<T>> {
         assert!(self.head.is_none() == self.tail.is_none());
         self.tail.take().map(|mut tail| {
@@ -115,6 +118,14 @@ impl<T: HasDoubleLink<T=T>> DList<T> {
             assert!(tail.dlink().prev.is_none());
             tail
         })
+    }
+
+    pub fn borrow_head(&self) -> Option<&T> {
+        self.head.as_ref().map(|head| &**head)
+    }
+
+    pub fn borrow_head_mut(&mut self) -> Option<&mut T> {
+        self.head.as_mut().map(|head| &mut**head)
     }
 
     pub fn borrow_tail(&self) -> Option<&T> {

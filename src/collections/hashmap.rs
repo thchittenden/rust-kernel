@@ -51,6 +51,11 @@ pub struct HashMap<K: Hash + Eq, V: HasSingleLink<T=V>> {
 }
 
 impl<K: Hash + Eq, V: HasSingleLink<T=V>> HashMap<K, V> {
+    
+    fn keygen<'a>(&self, val: &'a V) -> &'a K {
+        let keygen = self.keygen;
+        keygen(val)
+    }
 
     fn hash(&self, key: &K) -> u64 {
         let mut state = FNVHasher::new();
@@ -58,11 +63,11 @@ impl<K: Hash + Eq, V: HasSingleLink<T=V>> HashMap<K, V> {
         state.finish()
     }
 
-    fn keygen<'a>(&self, val: &'a V) -> &'a K {
-        let keygen = self.keygen;
-        keygen(val)
+    fn entry(&self, key: &K) -> usize {
+        self.hash(key) as usize % self.table.len()
     }
 
+    /// Attempts to construct a new hashmap.
     pub fn new(keygen: fn(&V) -> &K) -> Option<HashMap<K, V>> {
         DynArray::new(DEFAULT_SIZE).map(|array| {
             HashMap {
@@ -73,10 +78,11 @@ impl<K: Hash + Eq, V: HasSingleLink<T=V>> HashMap<K, V> {
         })
     }
 
+    /// Inserts a new entry into the hash map and returns the evicted value if there was one.
     pub fn insert(&mut self, mut val: Box<V>) -> Option<Box<V>> {
         let (res, entry) = {
             let key = self.keygen(&val);
-            let entry = self.hash(key) as usize % self.table.len();
+            let entry = self.entry(key);
             let res = self.remove(key);
             (res, entry)
         };
@@ -84,30 +90,48 @@ impl<K: Hash + Eq, V: HasSingleLink<T=V>> HashMap<K, V> {
         res
     }
 
+    /// Returns whether or not an element with the given key is in the map.
     pub fn contains(&self, key: &K) -> bool {
-        unimplemented!()
+        self.lookup(key).is_some()
     }
 
+    /// Tries to remove an element with the given key.
     pub fn remove(&mut self, key: &K) -> Option<Box<V>> {
-        let entry = self.hash(key) as usize % self.table.len();
-        let f = self.keygen;
-        self.table[entry].remove_where(|elem| f(elem) == key)
+        let entry = self.entry(key);
+        let keygen = self.keygen;
+        self.table[entry].remove_where(|elem| keygen(elem) == key)
     }
 
+    /// Tries to borrow an element with the given key.
     pub fn lookup(&self, key: &K) -> Option<&V> {
-        unimplemented!()
+        let entry = self.entry(key);
+        let keygen = self.keygen;
+        self.table[entry].borrow_where(|elem| keygen(elem) == key)
     }
 
-    pub fn lookup_mut(&self, key: &K) -> Option<&mut V> {
-        unimplemented!()
+    /// Tries to mutably borrow an element with the given key.
+    pub fn lookup_mut(&mut self, key: &K) -> Option<&mut V> {
+        let entry = self.entry(key);
+        let keygen = self.keygen;
+        self.table[entry].borrow_mut_where(|elem| keygen(elem) == key)
     }
 
-    pub fn lookup_or_insert<F>(&self, key: K, new: F) -> &V where F: FnOnce() -> V {
-        unimplemented!()
+    /// Tries to lookup an element in the map and if it is not present, inserts an element. Returns
+    /// a reference to the element now in the map.
+    pub fn lookup_or_insert<F>(&mut self, key: &K, new: F) -> &V where F: FnOnce() -> Box<V> {
+        if !self.contains(key) {
+            self.insert(new());
+        }
+        self.lookup(key).unwrap()
     }
 
-    pub fn lookup_or_insert_mut<F>(&mut self, key: K, new: F) -> &mut V where F: FnOnce() -> V {
-        unimplemented!()
+    /// Tries to lookup an element in the map and if it is not present, inserts an element. Returns
+    /// a mutable reference to the element now in the map.
+    pub fn lookup_or_insert_mut<F>(&mut self, key: &K, new: F) -> &mut V where F: FnOnce() -> Box<V> {
+        if !self.contains(key) {
+            self.insert(new());
+        }
+        self.lookup_mut(key).unwrap()
     }
 }
 
