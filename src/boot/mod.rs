@@ -18,12 +18,7 @@ extern crate mem;
 //extern crate devices;
 extern crate collections;
 
-use collections::vec::Vec;
-use alloc::boxed::Box;
-use alloc::rc::{Rc, HasRc};
-use core::prelude::*;
-use core::atomic::{AtomicUsize, ATOMIC_USIZE_INIT};
-use core::fmt;
+mod test;
 
 use util::multiboot::MultibootHeader;
 use interrupt::{timer, BREAKPOINT_IRQ, Regs, IRet};
@@ -58,9 +53,8 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     // Initialize the scheduler.
     sched::init();
 
-    test_boxes();
-    test_rc();
-    test_vec();
+    // Perform some self tests.
+    test::test_all();
 
     // Do nothing.
     loop { }
@@ -83,88 +77,4 @@ fn nop(_: u8, _: &mut Regs, _: &mut IRet) {
 }
 
 
-
-
-trait Foo {
-    fn grok(&self) -> usize;
-}
-
-struct Bar { a: usize, b: isize }
-
-impl Foo for Bar {
-    fn grok(&self) -> usize { self.a + self.b as usize }
-}
-
-fn test_boxes() {
-
-    trace!("\ntesting boxes");
-    // Test recursive drops.
-    let x = Box::new(3).unwrap();
-    let y = Box::new(x).unwrap();
-    trace!("got {}", y);
-    trace!(" or {}", **y);
-    drop(y);
-
-    let z = unsafe { Box::new(4).unwrap().into_raw() };
-    trace!("leaking {:p}", z);
-
-    // Test unsized drops.
-    let a = Bar { a: 1, b: 2 };
-    let b = Box::new(a).unwrap();
-    test_unsized(b);
-
-}
-
-struct Baz {
-    rc: AtomicUsize,
-    val: usize
-}
-
-impl HasRc for Baz {
-    fn get_count(&self) -> &AtomicUsize {
-        &self.rc
-    }
-}
-
-impl fmt::Debug for Baz {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Baz {{ val: {:?} }}", self.val)
-    }
-}
-
-fn test_rc() {
-
-    trace!("\ntesting rc");
-    let x = Box::new(Baz { rc: ATOMIC_USIZE_INIT, val: 4 }).unwrap(); 
-    let rcx1 = Rc::new(x);
-    let rcx2 = rcx1.clone();
-
-    trace!("rcx1: {:?}", rcx1);
-    trace!("rcx2: {:?}", rcx2);
-
-    drop(rcx1);
-
-    trace!("rcx2 still live: {:?}", rcx2);
-
-    drop(rcx2);
-}
-
-fn test_unsized(a: Box<Foo>) {
-    drop(a)
-}
-
-fn test_vec() {
-    trace!("\ntesting vec");
-    let mut x = Vec::new(4).unwrap();
-
-    for i in 10 .. 20 {
-        trace!("pushing {}", i);
-        let suc = x.push(i);
-        assert!(suc);
-    }
-    
-    for i in 19 .. 9 {
-        assert!(x.pop().unwrap() == i);
-    }
-}
 

@@ -51,6 +51,9 @@ trait Allocator {
     /// Frees `size` bytes of allocated memory located at `addr`. 
     fn deallocate_raw(&mut self, addr: usize, size: usize);
 
+    /// Returns an approximation of the amount of free space left on the heap.
+    fn get_free_space(&self) -> usize;
+
     /// Tries to allocate an object aligned to `align`. Returns a unique pointer to the object if
     /// successful and `None` otherwise.
     fn allocate_aligned<T>(&mut self, elem: T, align: usize) -> Option<Unique<T>> {
@@ -141,4 +144,8 @@ pub extern fn allocate_emplace<F, T>(init: F) -> Option<Unique<T>> where F: Fn(&
 /// This is up to the caller of deallocate to perform. TODO This may want to be changed.
 pub extern fn deallocate<T: ?Sized>(elem: Unique<T>) {
     ALLOCATOR.lock().deallocate(elem)
+}
+
+pub extern fn get_free_space() -> usize {
+    ALLOCATOR.lock().get_free_space()
 }

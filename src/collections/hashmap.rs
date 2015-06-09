@@ -1,6 +1,6 @@
 /// A simple hash map implementation based on separate chaining. 
 ///
-/// We chose to use separate chaining as insertions can't fail as they can with something
+/// We chose to use separate chaining as insertions can't fail as they can with something like
 /// open-addressing. A consequence of this however is that keys must always be derivable from their
 /// values. 
 ///
@@ -13,6 +13,7 @@ use core::prelude::*;
 use core::hash::{Hash, Hasher};
 use dynarray::DynArray;
 use link::HasSingleLink;
+use slist::SList;
 
 /// We assume the hash function is uniformly distributed in the lowest bits so that this doesn't
 /// result in horrible collisions. Otherwise this should be prime!
@@ -43,13 +44,13 @@ impl Hasher for FNVHasher {
     }
 }
 
-pub struct HashMap<K: Hash + Eq, V: HasSingleLink<V>> {
+pub struct HashMap<K: Hash + Eq, V: HasSingleLink<T=V>> {
     count: usize,
     keygen: fn(&V) -> &K,
-    table: DynArray<Option<Box<V>>>
+    table: DynArray<SList<V>>
 }
 
-impl<K: Hash + Eq, V: HasSingleLink<V>> HashMap<K, V> {
+impl<K: Hash + Eq, V: HasSingleLink<T=V>> HashMap<K, V> {
 
     fn hash(&self, key: &K) -> u64 {
         let mut state = FNVHasher::new();
@@ -72,24 +73,14 @@ impl<K: Hash + Eq, V: HasSingleLink<V>> HashMap<K, V> {
         })
     }
 
-    pub fn insert(&mut self, mut val: V) -> Option<V> {
+    pub fn insert(&mut self, mut val: Box<V>) -> Option<Box<V>> {
         let (res, entry) = {
             let key = self.keygen(&val);
             let entry = self.hash(key) as usize % self.table.len();
             let res = self.remove(key);
             (res, entry)
         };
-        match self.table[entry].take() {
-            Some(v) =>  {
-                // There are other elements in this chain. Push this one to the front.
-                val.slink_mut().link = Some(v);
-                self.table[entry] = Some(val);
-            }
-            None => { 
-                // This is the only element in this chain.
-                self.table[entry] = Some(val) 
-            }
-        }
+        self.table[entry].push(val);
         res
     }
 
@@ -97,8 +88,10 @@ impl<K: Hash + Eq, V: HasSingleLink<V>> HashMap<K, V> {
         unimplemented!()
     }
 
-    pub fn remove(&self, key: &K) -> Option<Box<V>> {
-        unimplemented!()
+    pub fn remove(&mut self, key: &K) -> Option<Box<V>> {
+        let entry = self.hash(key) as usize % self.table.len();
+        let f = self.keygen;
+        self.table[entry].remove_where(|elem| f(elem) == key)
     }
 
     pub fn lookup(&self, key: &K) -> Option<&V> {

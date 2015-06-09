@@ -2,6 +2,7 @@
 use core::prelude::*;
 use core::{mem, ptr};
 use core::ops::{Index, IndexMut};
+use core::intrinsics::drop_in_place;
 use alloc::{allocate_raw, reallocate_raw, deallocate_raw};
 
 pub struct DynArray<T> {
@@ -55,6 +56,13 @@ impl<T: Default> DynArray<T> {
 impl<T> Drop for DynArray<T> {
     fn drop(&mut self) {
         if self.len != mem::POST_DROP_USIZE {
+            // Drop all the contents of the array.
+            for i in 0..self.len {
+                // We know it is safe to drop these because they were initialized with a valid value.
+                unsafe { drop_in_place(self.raw.offset(i as isize)) };
+            }
+
+            // Deallocate the array itself.
             let addr = self.raw as usize;
             let size = self.len * mem::size_of::<T>();
             deallocate_raw(addr, size)

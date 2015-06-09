@@ -54,6 +54,7 @@ struct LMM {
 pub struct LMMAllocator {
     lmm: LMM,
     region: LMMRegion,
+    free: usize
 }
 
 
@@ -67,7 +68,8 @@ pub const LMM_ALLOCATOR_INIT: LMMAllocator = LMMAllocator {
         flags: 0,
         pri: 0,
         free: 0
-    }
+    },
+    free: 0
 };
 
 impl LMMAllocator {
@@ -80,6 +82,7 @@ impl LMMAllocator {
             lmm_add_region(&mut self.lmm, &mut self.region, heap_start, heap_end - heap_start);
             lmm_add_free(&mut self.lmm, heap_start, heap_end - heap_start);
         }
+        self.free = heap_end - heap_start;
     }
 
 }
@@ -91,7 +94,7 @@ impl Allocator for LMMAllocator {
 
     fn allocate_raw(&mut self, size: usize, align: usize) -> Option<usize> {
         trace!("trying to allocate {} bytes aligned to {:x}", size, align);
-        
+       
         if size == 0 {
             // If the allocation is 0 bytes, LMM can't handle it so we just give it a dummy
             // address.
@@ -99,6 +102,7 @@ impl Allocator for LMMAllocator {
             return Some(&EMPTY as *const () as usize);
         } else {
             // Otherwise we go to LMM for the allocation.
+            self.free -= size;
             let align_bits = align_bits(align) as u32;
             let align_ofs = 0;
             match unsafe { lmm_alloc_aligned(&mut self.lmm, size, ALLOC_FLAGS, align_bits, align_ofs) } {
@@ -133,10 +137,15 @@ impl Allocator for LMMAllocator {
         // Only free if this is not a 0 byte allocation. If it is 0 bytes, it better be a pointer
         // to EMPTY or else we didn't allocate it!
         if size != 0 {
+            self.free += size;
             unsafe { lmm_free(&mut self.lmm, addr, size) }
         } else {
             assert!(addr == &EMPTY as *const () as usize);
         }
     } 
+
+    fn get_free_space(&self) -> usize {
+        self.free
+    }
 
 }

@@ -25,11 +25,14 @@ mod raw;
 /// A dynamically resizable array.
 pub mod dynarray;
 
+/// A singly linked list.
+pub mod slist;
+
 /// An owning linked list.
 pub mod linkedlist;
 
 /// A separately-chained hash map.
-//pub mod hashmap;
+pub mod hashmap;
 
 /// A vector.
 pub mod vec;
