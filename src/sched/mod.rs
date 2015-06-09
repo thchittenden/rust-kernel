@@ -15,7 +15,7 @@ extern crate io;
 
 use core::prelude::*;
 use alloc::boxed::Box;
-use collections::linkedlist::LinkedList;
+use collections::dlist::DList;
 use task::thread::Thread;
 use lock::SchedLock;
 use interrupt::{pic, Regs, IRet, TIMER_INT_IRQ};
@@ -29,12 +29,12 @@ extern {
 
 struct Scheduler {
     thread: Option<Box<Thread>>,
-    runnable: LinkedList<Thread>,
+    runnable: DList<Thread>,
 }
 
 static SCHED: SchedLock<Scheduler> = static_schedlock!(Scheduler {
     thread: None,
-    runnable: LinkedList { len: 0, head: None, tail: None } 
+    runnable: DList { len: 0, head: None, tail: None } 
 });
 
 pub fn init() {

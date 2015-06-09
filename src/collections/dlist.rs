@@ -11,7 +11,7 @@ use super::raw::Raw;
 use super::link::HasDoubleLink;
 
 /// A queue.
-pub struct LinkedList<T: HasDoubleLink<T=T>> {
+pub struct DList<T: HasDoubleLink<T=T>> {
     pub len: usize,
     pub head: Option<Box<T>>,
     pub tail: Option<Raw<T>>
@@ -19,9 +19,9 @@ pub struct LinkedList<T: HasDoubleLink<T=T>> {
 
 /// Creates a static empty queue.
 #[macro_export]
-macro_rules! static_linkedlist {
+macro_rules! static_dlist {
     () => ({
-        LinkedList {
+        DList {
             len: 0,
             head: None,
             tail: None
@@ -29,11 +29,11 @@ macro_rules! static_linkedlist {
     });
 }
 
-impl<T: HasDoubleLink<T=T>> LinkedList<T> {
+impl<T: HasDoubleLink<T=T>> DList<T> {
    
     /// Creates a new empty queue.
-    pub fn new() -> LinkedList<T> {
-        static_linkedlist!()
+    pub fn new() -> DList<T> {
+        static_dlist!()
     }
 
     pub fn push_head(&mut self, mut new_head: Box<T>) {
@@ -131,8 +131,8 @@ impl<T: HasDoubleLink<T=T>> LinkedList<T> {
 
 }
 
-impl<T: HasDoubleLink<T=T>> Default for LinkedList<T> {
-    fn default() -> LinkedList<T> {
-        static_linkedlist!()
+impl<T: HasDoubleLink<T=T>> Default for DList<T> {
+    fn default() -> DList<T> {
+        static_dlist!()
     }
 }
