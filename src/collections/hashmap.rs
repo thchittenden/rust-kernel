@@ -44,13 +44,13 @@ impl Hasher for FNVHasher {
     }
 }
 
-pub struct HashMap<K: Hash + Eq, V: HasSingleLink<T=V>> {
+pub struct HashMap<K: Hash + Eq, V: HasSingleLink<T=V> + ?Sized> {
     count: usize,
     keygen: fn(&V) -> &K,
     table: DynArray<SList<V>>
 }
 
-impl<K: Hash + Eq, V: HasSingleLink<T=V>> HashMap<K, V> {
+impl<K: Hash + Eq, V: HasSingleLink<T=V> + ?Sized> HashMap<K, V> {
     
     fn keygen<'a>(&self, val: &'a V) -> &'a K {
         let keygen = self.keygen;
@@ -78,6 +78,10 @@ impl<K: Hash + Eq, V: HasSingleLink<T=V>> HashMap<K, V> {
         })
     }
 
+    pub fn count(&self) -> usize {
+        self.count
+    }
+
     /// Inserts a new entry into the hash map and returns the evicted value if there was one.
     pub fn insert(&mut self, mut val: Box<V>) -> Option<Box<V>> {
         let (res, entry) = {
@@ -86,6 +90,7 @@ impl<K: Hash + Eq, V: HasSingleLink<T=V>> HashMap<K, V> {
             let res = self.remove(key);
             (res, entry)
         };
+        self.count += 1;
         self.table[entry].push(val);
         res
     }
@@ -99,7 +104,11 @@ impl<K: Hash + Eq, V: HasSingleLink<T=V>> HashMap<K, V> {
     pub fn remove(&mut self, key: &K) -> Option<Box<V>> {
         let entry = self.entry(key);
         let keygen = self.keygen;
-        self.table[entry].remove_where(|elem| keygen(elem) == key)
+        let res = self.table[entry].remove_where(|elem| keygen(elem) == key);
+        if res.is_some() {
+            self.count -= 1; 
+        }
+        res
     }
 
     /// Tries to borrow an element with the given key.

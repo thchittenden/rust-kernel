@@ -22,6 +22,9 @@ mod raw;
 /// A link typed used by various collections.
 pub mod link;
 
+/// A wrapper for any type to add a link to it.
+pub mod linked;
+
 /// A dynamically resizable array.
 pub mod dynarray;
 

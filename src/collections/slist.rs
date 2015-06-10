@@ -5,12 +5,12 @@ use core::marker;
 use link::HasSingleLink;
 use raw::Raw;
 
-pub struct SList<T: HasSingleLink<T=T>> {
+pub struct SList<T: HasSingleLink<T=T> + ?Sized> {
     len: usize, 
     top: Option<Box<T>>,
 }
 
-impl<T: HasSingleLink<T=T>> SList<T> {
+impl<T: HasSingleLink<T=T> + ?Sized> SList<T> {
        
     /// Creates a new SList.
     pub fn new() -> SList<T> {
@@ -83,7 +83,7 @@ impl<T: HasSingleLink<T=T>> SList<T> {
     }
 }
 
-impl<'a, T: HasSingleLink<T=T>> IntoIterator for &'a SList<T> {
+impl<'a, T: HasSingleLink<T=T> + ?Sized> IntoIterator for &'a SList<T> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
     fn into_iter(self) -> Iter<'a, T> {
@@ -93,7 +93,7 @@ impl<'a, T: HasSingleLink<T=T>> IntoIterator for &'a SList<T> {
     }
 }
 
-impl<'a, T: HasSingleLink<T=T>> IntoIterator for &'a mut SList<T> {
+impl<'a, T: HasSingleLink<T=T> + ?Sized> IntoIterator for &'a mut SList<T> {
     type Item = &'a mut T;
     type IntoIter = IterMut<'a, T>;
     fn into_iter(self) -> IterMut<'a, T> {
@@ -104,7 +104,7 @@ impl<'a, T: HasSingleLink<T=T>> IntoIterator for &'a mut SList<T> {
     }
 }
 
-impl<T: HasSingleLink<T=T>> Default for SList<T> {
+impl<T: HasSingleLink<T=T> + ?Sized> Default for SList<T> {
     fn default() -> SList<T> {
         SList {
             len: 0,
@@ -113,16 +113,16 @@ impl<T: HasSingleLink<T=T>> Default for SList<T> {
     }   
 }
 
-pub struct Iter<'a, T: 'a> {
+pub struct Iter<'a, T: 'a + ?Sized> {
     top: Option<&'a T>,
 }
 
-pub struct IterMut<'a, T: 'a> {
+pub struct IterMut<'a, T: 'a + ?Sized> {
     top: Option<Raw<T>>,
     _marker: marker::PhantomData<&'a mut T>
 }
 
-impl<'a, T: HasSingleLink<T=T>> Iterator for Iter<'a, T> {
+impl<'a, T: HasSingleLink<T=T> + ?Sized> Iterator for Iter<'a, T> {
     type Item = &'a T;
     fn next(&mut self) -> Option<&'a T> {
         self.top.take().map(|top| {
@@ -132,7 +132,7 @@ impl<'a, T: HasSingleLink<T=T>> Iterator for Iter<'a, T> {
     }
 }
 
-impl<'a, T: HasSingleLink<T=T>> Iterator for IterMut<'a, T> {
+impl<'a, T: HasSingleLink<T=T> + ?Sized> Iterator for IterMut<'a, T> {
     type Item = &'a mut T;
     fn next(&mut self) -> Option<&'a mut T> {
         self.top.take().map(|mut top| {

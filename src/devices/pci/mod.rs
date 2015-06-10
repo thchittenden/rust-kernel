@@ -5,7 +5,7 @@ use core::{fmt, mem};
 use core::fmt::Debug;
 use util::asm;
 use collections::vec::Vec;
-use super::{Driver, Device, DeviceClass, DevicesCtx};
+use super::{Driver, Device, DeviceClass, DeviceManager};
 logger_init!(Trace);
 
 const CONFIG_ADDRESS: u16 = 0xCF8;
@@ -157,7 +157,7 @@ impl Driver for PCIDriver {
 }
 
 /// Initializes the PCI subsystem and registers any PCI drivers with the driver registry.
-pub fn init(ctx: &mut DevicesCtx) {
+pub fn init(ctx: &mut DeviceManager) {
    
     ctx.register_driver(Box::new(PCIDriver).unwrap());
 

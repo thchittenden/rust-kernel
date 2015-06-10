@@ -28,9 +28,23 @@ pub fn test() {
     let mut map: HashMap<usize, X> = HashMap::new(X::getkey).unwrap();
     let x = Box::new(X { key: 3, val: 4, node: DoubleLink::default() }).unwrap();
     let y = Box::new(X { key: 4, val: 5, node: DoubleLink::default() }).unwrap();
+    let z = Box::new(X { key: 7, val: 9, node: DoubleLink::default() }).unwrap();
     map.insert(x);
     map.insert(y);
+    map.insert(z);
+
+    assert!(map.count() == 3);
+    assert!(map.lookup(&3).unwrap().val == 4);
+    assert!(map.count() == 3);
+    
+    map.lookup_mut(&4).unwrap().val = 42;
+    assert!(map.lookup(&4).unwrap().val == 42);
+
     assert!(map.remove(&3).unwrap().val == 4);
-    assert!(map.remove(&4).unwrap().val == 5);
+    assert!(map.remove(&4).unwrap().val == 42);
+    assert!(map.count() == 1);
+
+    assert!(map.remove(&7).unwrap().val == 9);
+    assert!(map.count() == 0);
 }
 

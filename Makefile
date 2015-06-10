@@ -16,7 +16,7 @@ LOG_LEVEL  := trace
 LOG_DEVICE := serial
 
 # Module config. This order is important (and fragile!)
-CRATES := util mutex interrupt alloc io collections mem task sched sync rt boot
+CRATES := util mutex interrupt alloc io collections devices mem task sched sync rt boot
 
 # Program config.
 AS := gcc

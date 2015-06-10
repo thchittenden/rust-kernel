@@ -8,34 +8,34 @@
 extern crate alloc;
 extern crate collections;
 
-mod pci;
+//mod pci;
 
 use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc};
 use core::prelude::*;
 use core::ops::Index;
 use core::fmt::Debug;
+use collections::link::{HasSingleLink, SingleLink};
+use collections::linked::Linked;
 use collections::hashmap::HashMap;
 use collections::vec::Vec;
 use util::global::Global;
 logger_init!(Trace);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DeviceClass {
     PCI { class: u8, subclass: u8 },
     USB { vid: u16, pid: u16 },
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum DeviceID {
-    TODO
-}
-
-
 /// A driver represents some object with information on how to initialize a device. Sub-traits of
 /// Driver should have methods for creating devices from device-specific information.
-pub trait Driver : Debug {
-    /// Returns a device that this driver supports.
+pub trait Driver {
+    /// Returns a name for this driver.
+    fn get_name(&self) -> &str;
+
+    /// Returns a device that this driver supports. We need to return a linked device because
+    /// there's no way to make HasSingleLink a trait bound on Driver :(
     fn get_device(&self) -> Option<Box<Device>>;
 
     /// Returns a collection of devices that this driver supports. This allows us to only allocate
@@ -48,19 +48,38 @@ pub trait Driver : Debug {
     /// Tries to create a new device from the parent device that exposed a device class that this
     /// driver supports.
     fn create_device(&self, parent: Rc<Device>) -> Option<Box<Device>>;
+
+    /// Allow a HasSingleLink implementation for Driver.
+    fn __slink(&self) -> &SingleLink<Driver>;
+    fn _slink_mut(&mut self) -> &mut SingleLink<Driver>;
+}
+
+/// Since we can't specify HasSingleLink<Driver> as a type bound for Driver since that would result
+/// in recursive traits, we instead just ensure there's an implementation of HasSingleLink for all
+/// Drivers.
+impl HasSingleLink for Driver {
+    type T = Driver;
+    fn slink(&self) -> &SingleLink<Driver> {
+        self.__slink()
+    }
+    fn slink_mut(&mut self) -> &mut SingleLink<Driver> {
+        self._slink_mut()
+    }
 }
 
 /// A device is an interface for interacting with a physical device, whether it's an IDE drive or
 /// an ethernet controller.
-pub trait Device : HasRc + Debug {
+pub trait Device : HasRc {
     /// Returns an identifier for the device.
-    fn get_id(&self) -> DeviceID;
+    fn get_name(&self) -> &str;
 
     /// Returns the class of this device.
     fn get_class(&self) -> DeviceClass;
 
     /// Attempts to convert a device to a DeviceBus if possible. This allows us to enumerate all
-    /// connected devices during driver initialization.
+    /// connected devices during driver initialization. It would be great if there were a more
+    /// generic way to do this but I don't there is since generic types make traits not
+    /// object-safe.
     fn downgrade_bus(&self) -> Option<&DeviceBus>;
 }
 
@@ -68,38 +87,30 @@ pub trait Device : HasRc + Debug {
 /// registers a device that is also a DeviceBus it will be enumerated and all supported devices on
 /// the bus will be registered.
 pub trait DeviceBus : Device {
-    /// Enumerates all devices connected to the bus and inserts them into the device registry if a
-    /// corresponding driver was found in the driver registry. 
-    ///
-    /// By passing the driver and device registries as parameters, we avoid needing to allocate
-    /// extra space for returning a vector of devices.
-    fn enumerate(&self, &mut DevicesCtx);
+    /// Enumerates all devices on the bus and registers them with the current context.
+    fn enumerate(&self, &mut DeviceManager);
 }
 
-pub struct DevicesCtx {
+pub struct DeviceManager {
     /// Map of drivers from the device classes they support.
-    drivers_class_map: HashMap<DeviceClass, Box<Driver>>,
+    drivers_map: HashMap<DeviceClass, Driver>,
 
     /// Map of devices from their device classes.
-    devices_class_map: HashMap<DeviceClass, Vec<Rc<Device>>>,
-
-    /// Map of devices from their device ID's.
-    devices_id_map: HashMap<DeviceID, Rc<Device>>
+    devices_map: HashMap<DeviceClass, Linked<Vec<Rc<Device>>>>,
 }
 
-impl DevicesCtx {
+impl DeviceManager {
     
-    pub fn new() -> DevicesCtx {
-        DevicesCtx {
-            drivers_class_map: HashMap::new(),
-            devices_class_map: HashMap::new(),
-            devices_id_map: HashMap::new(),
+    pub fn new() -> DeviceManager {
+        DeviceManager {
+            drivers_map: HashMap::new(),
+            devices_map: HashMap::new(),
         }
     }
     
     // Registers a driver for future use by the system.
     pub fn register_driver(&mut self, driver: Box<Driver>) {
-        trace!("registering driver {:?}", &*driver);
+        trace!("registering driver {}", driver.get_name());
 
         // Try to get any devices the driver supports.
         driver.get_device().map(|device| self.register_device(device));
@@ -112,13 +123,12 @@ impl DevicesCtx {
         // If the driver supports a class of device, insert it into the driver map.
         driver.get_device_class().map(|class| {
 
-            // This sucks! Since we can't mutably borrow both self.devices_class_map and call
+            // This sucks! Since we can't mutably borrow both self.devices_map and call
             // self.register_device at the same time, we have to do this horrible thing and
             // continuously lookup the value so we can release the mutable borrow on
             // self.devices_class_map. Luckily this shouldn't run often!
-            let count = self.devices_class_map.lookup(class).map(Vec::len).unwrap_or(0);
+            let count = self.devices_map.lookup(class).map(Vec::len).unwrap_or(0);
             for i in 0 .. count {
-
                 // Get a reference to the ref-counted device.
                 let dev: Rc<Device> = self.devices_class_map.lookup(class).unwrap().index(i).clone();
 
@@ -151,12 +161,12 @@ impl DevicesCtx {
 
 }
 
-static CTX: Global<DevicesCtx> = global_init!();
+static CTX: Global<DeviceManager> = global_init!();
 
 pub fn init() {
     // Initialize all drivers. These modules additionally add any modules directly
-    let mut ctx = DevicesCtx::new();
-    pci::init(&mut ctx);
+    let mut ctx = DeviceManager::new();
+    //pci::init(&mut ctx);
     
     // Initialize the global context.
     CTX.init(ctx);

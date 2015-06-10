@@ -45,7 +45,7 @@ impl<T: ?Sized> Default for DoubleLink<T> {
 }
 
 /// Any type that as a double link also has a single link.
-impl<T: HasDoubleLink<T=T>> HasSingleLink for T {
+impl<T: HasDoubleLink<T=T> + ?Sized> HasSingleLink for T {
     type T = T;
     fn slink(&self) -> &SingleLink<T> {
         &self.dlink().next

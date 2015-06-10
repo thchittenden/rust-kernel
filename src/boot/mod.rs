@@ -15,7 +15,7 @@ extern crate alloc;
 extern crate sched;
 extern crate task;
 extern crate mem;
-//extern crate devices;
+extern crate devices;
 extern crate collections;
 
 mod test;
@@ -48,7 +48,7 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     mem::init(hdr);
     
     // Initialize all devices.
-   // devices::init();
+    devices::init();
 
     // Initialize the scheduler.
     sched::init();
