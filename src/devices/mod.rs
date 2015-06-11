@@ -17,7 +17,7 @@ use core::ops::Index;
 use core::fmt::Debug;
 use collections::link::{HasSingleLink, SingleLink};
 use collections::linked::Linked;
-use collections::hashmap::HashMap;
+use collections::hashmap::{HasKey, HashMap};
 use collections::vec::Vec;
 use util::global::Global;
 logger_init!(Trace);
@@ -44,26 +44,16 @@ pub trait Driver {
 
     /// Returns the class of the devices this driver supports.
     fn get_device_class(&self) -> Option<DeviceClass>;
+    fn borrow_device_class(&self) -> Option<&DeviceClass>;
 
     /// Tries to create a new device from the parent device that exposed a device class that this
     /// driver supports.
     fn create_device(&self, parent: Rc<Device>) -> Option<Box<Device>>;
-
-    /// Allow a HasSingleLink implementation for Driver.
-    fn __slink(&self) -> &SingleLink<Driver>;
-    fn _slink_mut(&mut self) -> &mut SingleLink<Driver>;
 }
 
-/// Since we can't specify HasSingleLink<Driver> as a type bound for Driver since that would result
-/// in recursive traits, we instead just ensure there's an implementation of HasSingleLink for all
-/// Drivers.
-impl HasSingleLink for Driver {
-    type T = Driver;
-    fn slink(&self) -> &SingleLink<Driver> {
-        self.__slink()
-    }
-    fn slink_mut(&mut self) -> &mut SingleLink<Driver> {
-        self._slink_mut()
+impl HasKey<DeviceClass> for Linked<Driver> {
+    fn get_key(&self) -> &DeviceClass {
+        self.borrow_device_class().unwrap()
     }
 }
 
@@ -75,12 +65,19 @@ pub trait Device : HasRc {
 
     /// Returns the class of this device.
     fn get_class(&self) -> DeviceClass;
+    fn borrow_class(&self) -> &DeviceClass;
 
     /// Attempts to convert a device to a DeviceBus if possible. This allows us to enumerate all
     /// connected devices during driver initialization. It would be great if there were a more
     /// generic way to do this but I don't there is since generic types make traits not
     /// object-safe.
     fn downgrade_bus(&self) -> Option<&DeviceBus>;
+}
+
+impl HasKey<DeviceClass> for Linked<Vec<Rc<Device>>> {
+    fn get_key(&self) -> &DeviceClass {
+        (*self)[0].borrow_class()
+    }
 }
 
 /// A device bus is some device that allows more devices to be connected to it. If a driver
@@ -93,23 +90,27 @@ pub trait DeviceBus : Device {
 
 pub struct DeviceManager {
     /// Map of drivers from the device classes they support.
-    drivers_map: HashMap<DeviceClass, Driver>,
+    drivers_map: HashMap<DeviceClass, Linked<Driver>>,
 
     /// Map of devices from their device classes.
     devices_map: HashMap<DeviceClass, Linked<Vec<Rc<Device>>>>,
+}
+
+fn drivers_map_key<'a>(x: &'a Linked<Driver>) -> &'a DeviceClass {
+    x.borrow_device_class().unwrap()
 }
 
 impl DeviceManager {
     
     pub fn new() -> DeviceManager {
         DeviceManager {
-            drivers_map: HashMap::new(),
-            devices_map: HashMap::new(),
+            drivers_map: HashMap::new().unwrap(),
+            devices_map: HashMap::new().unwrap(),
         }
     }
     
     // Registers a driver for future use by the system.
-    pub fn register_driver(&mut self, driver: Box<Driver>) {
+    pub fn register_driver(&mut self, driver: Box<Linked<Driver>>) {
         trace!("registering driver {}", driver.get_name());
 
         // Try to get any devices the driver supports.
@@ -127,30 +128,31 @@ impl DeviceManager {
             // self.register_device at the same time, we have to do this horrible thing and
             // continuously lookup the value so we can release the mutable borrow on
             // self.devices_class_map. Luckily this shouldn't run often!
-            let count = self.devices_map.lookup(class).map(Vec::len).unwrap_or(0);
+            let count = self.devices_map.lookup(&class).map(|link| (*link).len()).unwrap_or(0);
             for i in 0 .. count {
                 // Get a reference to the ref-counted device.
-                let dev: Rc<Device> = self.devices_class_map.lookup(class).unwrap().index(i).clone();
+                let dev: Rc<Device> = self.devices_map.lookup(&class).unwrap().index(i).clone();
 
                 // Use the driver to try to create a new device and register it.
                 driver.create_device(dev).map(|dev| self.register_device(dev));
             }
             
             // Insert the class into the map of classes.
-            self.drivers_class_map.insert(class, driver);
+            self.drivers_map.insert(driver);
         });
     }
 
     pub fn register_device(&mut self, device: Box<Device>) {
-        trace!("registering device {:?}", &*device);
+        trace!("registering device {}", device.get_name());
 
-        let id = device.get_id();
         let class = device.get_class();
         
         // Insert the device into the devices_class_map and the devices_id_map.
         let rc = Rc::new(device);
-        self.devices_class_map.lookup_or_insert_mut(class, || Vec::new(4).unwrap()).push(rc.clone());
-        self.devices_id_map.insert(id, rc.clone());
+        self.devices_map.lookup_or_insert_mut(&class, || {
+            let vec = Vec::new(4).unwrap();
+            Box::new(Linked::new(vec)).unwrap()
+        }).push(rc.clone());
 
         // If we can cast this device to a bus, enumerate it.
         if let Some(bus) = rc.downgrade_bus() {

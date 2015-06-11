@@ -75,8 +75,7 @@ impl Thread {
 
 }
 
-impl HasDoubleLink for Thread {
-    type T=Thread;
+impl HasDoubleLink<Thread> for Thread {
     fn dlink(&self) -> &DoubleLink<Thread> {
         &self.sched_node
     }

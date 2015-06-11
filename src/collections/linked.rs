@@ -3,9 +3,9 @@ use core::ops::{Deref, DerefMut};
 use alloc::rc::Rc;
 use link::{DoubleLink, HasDoubleLink};
 
-struct Linked<T> {
-    value: T,
+pub struct Linked<T: ?Sized> {
     link: DoubleLink<Linked<T>>,
+    value: T,
 }
 
 impl<T> Linked<T> {
@@ -17,31 +17,29 @@ impl<T> Linked<T> {
     }
 }
 
-impl<T> HasDoubleLink for Linked<T> {
-    type T = Linked<T>;
-    fn dlink(&self) -> &DoubleLink<Self::T> {
+impl<T: ?Sized> HasDoubleLink<Linked<T>> for Linked<T> {
+    fn dlink(&self) -> &DoubleLink<Linked<T>> {
         &self.link
     }
-
-    fn dlink_mut(&mut self) -> &mut DoubleLink<Self::T> {
+    fn dlink_mut(&mut self) -> &mut DoubleLink<Linked<T>> {
         &mut self.link
     }
 }
 
-impl<T> Deref for Linked<T> {
+impl<T: ?Sized> Deref for Linked<T> {
     type Target = T;
     fn deref(&self) -> &T {
         &self.value
     }
 }
 
-impl<T> DerefMut for Linked<T> {
+impl<T: ?Sized> DerefMut for Linked<T> {
     fn deref_mut(&mut self) -> &mut T {
         &mut self.value
     }
 }
 
-impl <T: Clone> Clone for Linked<T> {
+impl <T: Clone + ?Sized> Clone for Linked<T> {
     fn clone(&self) -> Linked<T> {
         Linked {
             value: self.value.clone(),

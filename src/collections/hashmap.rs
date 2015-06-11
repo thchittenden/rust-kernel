@@ -11,6 +11,7 @@
 use alloc::boxed::Box;
 use core::prelude::*;
 use core::hash::{Hash, Hasher};
+use core::marker;
 use dynarray::DynArray;
 use link::HasSingleLink;
 use slist::SList;
@@ -20,6 +21,10 @@ use slist::SList;
 const DEFAULT_SIZE: usize = 16;
 const FNV_BASE: u64 = 0xcbf29ce484222325;
 const FNV_PRIME: u64 = 0x100000001b3;
+
+pub trait HasKey<K> {
+    fn get_key(&self) -> &K;
+}
 
 pub struct FNVHasher {
     accum: u64
@@ -44,19 +49,14 @@ impl Hasher for FNVHasher {
     }
 }
 
-pub struct HashMap<K: Hash + Eq, V: HasSingleLink<T=V> + ?Sized> {
+pub struct HashMap<K: Hash + Eq, V: HasKey<K> + HasSingleLink<V> + ?Sized> {
     count: usize,
-    keygen: fn(&V) -> &K,
-    table: DynArray<SList<V>>
+    table: DynArray<SList<V>>,
+    _marker: marker::PhantomData<K>,
 }
 
-impl<K: Hash + Eq, V: HasSingleLink<T=V> + ?Sized> HashMap<K, V> {
+impl<K: Hash + Eq, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K, V> {
     
-    fn keygen<'a>(&self, val: &'a V) -> &'a K {
-        let keygen = self.keygen;
-        keygen(val)
-    }
-
     fn hash(&self, key: &K) -> u64 {
         let mut state = FNVHasher::new();
         key.hash(&mut state);
@@ -68,12 +68,12 @@ impl<K: Hash + Eq, V: HasSingleLink<T=V> + ?Sized> HashMap<K, V> {
     }
 
     /// Attempts to construct a new hashmap.
-    pub fn new(keygen: fn(&V) -> &K) -> Option<HashMap<K, V>> {
+    pub fn new() -> Option<HashMap<K, V>> {
         DynArray::new(DEFAULT_SIZE).map(|array| {
             HashMap {
                 count: 0,
-                keygen: keygen,
-                table: array
+                table: array,
+                _marker: marker::PhantomData
             }
         })
     }
@@ -85,7 +85,7 @@ impl<K: Hash + Eq, V: HasSingleLink<T=V> + ?Sized> HashMap<K, V> {
     /// Inserts a new entry into the hash map and returns the evicted value if there was one.
     pub fn insert(&mut self, mut val: Box<V>) -> Option<Box<V>> {
         let (res, entry) = {
-            let key = self.keygen(&val);
+            let key = val.get_key();
             let entry = self.entry(key);
             let res = self.remove(key);
             (res, entry)
@@ -103,8 +103,7 @@ impl<K: Hash + Eq, V: HasSingleLink<T=V> + ?Sized> HashMap<K, V> {
     /// Tries to remove an element with the given key.
     pub fn remove(&mut self, key: &K) -> Option<Box<V>> {
         let entry = self.entry(key);
-        let keygen = self.keygen;
-        let res = self.table[entry].remove_where(|elem| keygen(elem) == key);
+        let res = self.table[entry].remove_where(|elem| elem.get_key() == key);
         if res.is_some() {
             self.count -= 1; 
         }
@@ -114,15 +113,13 @@ impl<K: Hash + Eq, V: HasSingleLink<T=V> + ?Sized> HashMap<K, V> {
     /// Tries to borrow an element with the given key.
     pub fn lookup(&self, key: &K) -> Option<&V> {
         let entry = self.entry(key);
-        let keygen = self.keygen;
-        self.table[entry].borrow_where(|elem| keygen(elem) == key)
+        self.table[entry].borrow_where(|elem| elem.get_key() == key)
     }
 
     /// Tries to mutably borrow an element with the given key.
     pub fn lookup_mut(&mut self, key: &K) -> Option<&mut V> {
         let entry = self.entry(key);
-        let keygen = self.keygen;
-        self.table[entry].borrow_mut_where(|elem| keygen(elem) == key)
+        self.table[entry].borrow_mut_where(|elem| elem.get_key() == key)
     }
 
     /// Tries to lookup an element in the map and if it is not present, inserts an element. Returns

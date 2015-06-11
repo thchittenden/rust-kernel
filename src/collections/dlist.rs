@@ -11,7 +11,7 @@ use super::raw::Raw;
 use super::link::HasDoubleLink;
 
 /// A doubly linked list.
-pub struct DList<T: HasDoubleLink<T=T>> {
+pub struct DList<T: HasDoubleLink<T>> {
     pub len: usize,
     pub head: Option<Box<T>>,
     pub tail: Option<Raw<T>>
@@ -29,7 +29,7 @@ macro_rules! static_dlist {
     });
 }
 
-impl<T: HasDoubleLink<T=T>> DList<T> {
+impl<T: HasDoubleLink<T>> DList<T> {
    
     /// Creates a new empty list.
     pub fn new() -> DList<T> {
@@ -142,7 +142,7 @@ impl<T: HasDoubleLink<T=T>> DList<T> {
 
 }
 
-impl<T: HasDoubleLink<T=T>> Default for DList<T> {
+impl<T: HasDoubleLink<T>> Default for DList<T> {
     fn default() -> DList<T> {
         static_dlist!()
     }

@@ -18,18 +18,14 @@ pub struct DoubleLink<T: ?Sized> {
     pub prev: Option<Raw<T>>
 }
 
-pub trait HasDoubleLink {
-    /// The underlying type that contains the link.
-    type T: ?Sized;
-    fn dlink(&self) -> &DoubleLink<Self::T>;
-    fn dlink_mut(&mut self) -> &mut DoubleLink<Self::T>;
+pub trait HasDoubleLink<T: ?Sized> {
+    fn dlink(&self) -> &DoubleLink<T>;
+    fn dlink_mut(&mut self) -> &mut DoubleLink<T>;
 }
 
-pub trait HasSingleLink {
-    /// The underlying type that contains the link.
-    type T: ?Sized;
-    fn slink(&self) -> &SingleLink<Self::T>;
-    fn slink_mut(&mut self) -> &mut SingleLink<Self::T>;
+pub trait HasSingleLink<T: ?Sized> {
+    fn slink(&self) -> &SingleLink<T>;
+    fn slink_mut(&mut self) -> &mut SingleLink<T>;
 }
 
 impl<T: ?Sized> Default for SingleLink<T> {
@@ -45,8 +41,7 @@ impl<T: ?Sized> Default for DoubleLink<T> {
 }
 
 /// Any type that as a double link also has a single link.
-impl<T: HasDoubleLink<T=T> + ?Sized> HasSingleLink for T {
-    type T = T;
+impl<T: HasDoubleLink<T> + ?Sized> HasSingleLink<T> for T {
     fn slink(&self) -> &SingleLink<T> {
         &self.dlink().next
     }
