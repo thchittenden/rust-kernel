@@ -83,7 +83,7 @@ impl<K: Hash + Eq, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K, V> {
     }
 
     /// Inserts a new entry into the hash map and returns the evicted value if there was one.
-    pub fn insert(&mut self, mut val: Box<V>) -> Option<Box<V>> {
+    pub fn insert(&mut self, val: Box<V>) -> Option<Box<V>> {
         let (res, entry) = {
             let key = val.get_key();
             let entry = self.entry(key);

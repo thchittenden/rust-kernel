@@ -49,7 +49,7 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     mem::init(hdr);
     
     // Create the root file system.
-    fs::init();
+    //fs::init();
 
     // Initialize all devices.
     devices::init();

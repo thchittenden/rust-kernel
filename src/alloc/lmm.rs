@@ -121,6 +121,7 @@ impl Allocator for LMMAllocator {
     fn reallocate_raw(&mut self, old_addr: usize, old_size: usize, new_size: usize, align: usize) -> Result<usize, usize> {
         // LMM does not actually contain a realloc function so we are limited to just trying a new
         // allocation, copying bytes, and freeing the old one.
+        trace!("trying to reallocate {} bytes at 0x{:x} to {} bytes", old_size, old_addr, new_size);
         self.allocate_raw(new_size, align).map(|new_addr| {
             // The allocation succeeded, copy bytes and free the old one.
             let src = old_addr as *mut u8;

@@ -14,8 +14,6 @@ use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc};
 use core::prelude::*;
 use core::ops::Index;
-use core::fmt::Debug;
-use collections::link::{HasSingleLink, SingleLink};
 use collections::linked::Linked;
 use collections::hashmap::{HasKey, HashMap};
 use collections::vec::Vec;

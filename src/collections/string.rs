@@ -87,6 +87,21 @@ impl fmt::Write for String {
     }
 }
 
+impl fmt::Display for String {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self.as_str(), f)
+    }
+}
+
+impl fmt::Debug for String {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self.as_str(), f)
+    }
+}
+
+
 /// A dynamically growable string.
 pub struct DynString {
     arr: Vec<u8>,

@@ -5,6 +5,7 @@ use core::prelude::*;
 use core::ops::{Index, IndexMut};
 use core::{ptr, mem, marker};
 use core::slice;
+use core::cmp::max;
 use alloc::{allocate_raw, deallocate_raw, reallocate_raw};
 
 /// A growable vector.
@@ -47,13 +48,15 @@ impl<T> Vec<T> {
         } else {
             // Need to reallocate!
             let old_addr = self.raw as usize;
-            let old_size = self.cap * mem::size_of::<T>();
-            let new_size = old_size * 2; // TODO 2?
+            let old_cap = self.cap;
+            let new_cap = max(self.cap, 1) * 2;
+            let old_size = old_cap * mem::size_of::<T>();
+            let new_size = new_cap * mem::size_of::<T>();
             let align = mem::min_align_of::<T>();
             match reallocate_raw(old_addr, old_size, new_size, align) {
                 Ok(new_addr) => {
                     self.raw = new_addr as *mut T;
-                    self.cap *= 2;
+                    self.cap = new_cap;
                     unsafe { ptr::write(self.raw.offset(self.len as isize), val) };
                     self.len += 1;
                     Ok(())
