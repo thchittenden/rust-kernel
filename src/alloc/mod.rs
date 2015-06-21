@@ -22,8 +22,12 @@
 #[macro_use] extern crate util;
 #[macro_use] extern crate mutex;
 
+/// An owned box.
 pub mod boxed;
+
+/// A reference counted pointer.
 pub mod rc;
+
 mod lmm;
 
 use core::prelude::*;
@@ -146,6 +150,7 @@ pub extern fn deallocate<T: ?Sized>(elem: Unique<T>) {
     ALLOCATOR.lock().deallocate(elem)
 }
 
+/// Returns an upper bound on the amount of free space.
 pub extern fn get_free_space() -> usize {
     ALLOCATOR.lock().get_free_space()
 }

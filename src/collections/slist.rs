@@ -1,6 +1,5 @@
 use alloc::boxed::Box;
 use core::prelude::*;
-use core::ops::DerefMut;
 use core::marker;
 use link::HasSingleLink;
 use raw::Raw;
@@ -31,6 +30,11 @@ impl<T: HasSingleLink<T> + ?Sized> SList<T> {
             self.top = top.slink_mut().link.take();
             top
         })
+    }
+
+    /// Returns the number of elements in the list.
+    pub fn len(&self) -> usize {
+        self.len
     }
 
     /// Remove the first node in the list that satisfies the given condition.

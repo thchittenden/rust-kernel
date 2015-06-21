@@ -38,8 +38,14 @@ pub struct MutexGuard<'a, T: 'a> {
 
 /// The mutex object. Fields are marked public to enable static initialization.
 pub struct Mutex<T> {
+
+    /// The current ticket. Whoever holds this ticket is allowed to access the underlying data.
     pub curr_ticket: AtomicUsize,
+
+    /// The next ticket to be handed out to callers.
     pub next_ticket: AtomicUsize,
+
+    /// The underlying data controlled by the mutex.
     pub data: UnsafeCell<T>,
 }
 
@@ -61,7 +67,8 @@ macro_rules! static_mutex {
 }
 
 impl <T> Mutex<T> {
-    
+   
+    /// Constructs a new mutex for the given data.
     pub fn new(data: T) -> Mutex<T> {
         Mutex {
             curr_ticket: AtomicUsize::new(0),
@@ -70,6 +77,8 @@ impl <T> Mutex<T> {
         }
     }
 
+    /// Returns an RAII style lock on the contents of the mutex. This function blocks until we own
+    /// the mutex.
     pub fn lock(&self) -> MutexGuard<T> {
         // Take a ticket.
         let my_ticket = self.next_ticket.fetch_add(1, Ordering::SeqCst);

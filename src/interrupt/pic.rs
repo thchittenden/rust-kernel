@@ -24,6 +24,9 @@ const ICW4_BUF_SLAVE: u8  = 0x08;
 const ICW4_BUF_MASTER: u8 = 0x0c;
 const ICW4_SFNM: u8     = 0x10;
 
+/// Initializes the 8259PIC. PIC interrupts are originally delivered at IRQs 0-16 which is fine for
+/// early BIOS environment, however this is also where x86 interrupts are delivered to so we must
+/// rebase the PIC interrupts so they are delivered elsewhere.
 pub fn init_pic() {
     // Start the initialization sequence.
     asm::outb8(MASTER_PIC_COMM, ICW1_INIT | ICW1_ICW4);
@@ -50,6 +53,8 @@ pub fn init_pic() {
     asm::outb8(SLAVE_PIC_DATA, 0);
 }
 
+/// Acknowledges a PIC IRQ. The PIC will not deliver further interrupts to a particular IRQ until
+/// it is acknowledged (usually!).
 pub fn acknowledge_irq(irq: u8) {
     assert!(PIC_IRQ_BASE <= irq && irq < PIC_IRQ_BASE + PIC_IRQ_COUNT);
     let pic_irq = irq - PIC_IRQ_BASE;

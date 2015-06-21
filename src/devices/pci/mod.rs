@@ -158,7 +158,5 @@ impl Driver for PCIDriver {
 
 /// Initializes the PCI subsystem and registers any PCI drivers with the driver registry.
 pub fn init(ctx: &mut DeviceManager) {
-   
-    ctx.register_driver(Box::new(PCIDriver).unwrap());
-
+    ctx.register_driver(Box::new(Linked::new(PCIDriver)).unwrap());
 }

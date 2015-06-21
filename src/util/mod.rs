@@ -1,3 +1,6 @@
+//! This crate contains a collection of dependent-less utility functions and constants used
+//! throughout the kernel.
+//!
 #![crate_name="util"]
 #![crate_type="rlib"]
 #![feature(no_std,core,asm,unique)]
@@ -5,15 +8,26 @@
 
 #[macro_use] extern crate core;
 
+/// Utility macros.
 #[macro_use] pub mod macros;
-pub mod asm;
-pub mod bitflags;
-pub mod global;
-pub mod logger;
-pub mod multiboot;
-pub mod rawbox;
 
-use core::prelude::*;
+/// Assembly wrappers.
+pub mod asm;
+
+/// The bitflags library.
+pub mod bitflags;
+
+/// A wrapper for init-once globals.
+pub mod global;
+
+/// Logging macros.
+pub mod logger;
+
+/// Multiboot header struct.
+pub mod multiboot;
+
+/// A box type for nonmanaged pointers.
+pub mod rawbox;
 
 pub const NULL_SEGMENT: u16 = 0x0000;
 pub const KERNEL_CODE_SEGMENT: u16 = 0x0008;
@@ -29,16 +43,20 @@ macro_rules! getbyte {
     ($val:expr, $byte:expr) => { ($val >> (8 * $byte)) as u8 };
 }
 
+/// Returns whether an address is page aligned or not.
 #[inline]
 pub fn is_page_aligned(addr: usize) -> bool {
     is_aligned!(addr, PAGE_SIZE)
 }
 
+/// Aligns an address to the page it's contained in.
 #[inline]
 pub fn page_align(addr: usize) -> usize {
     align!(addr, PAGE_SIZE)
 }
 
+/// Returns the number of low order 0 bits in an alignment mask. This is currently used in the LMM
+/// allocator.
 #[inline]
 pub fn align_bits(mut alignment: usize) -> usize {
     // We could use an instruction to do this more efficiently.
@@ -50,6 +68,7 @@ pub fn align_bits(mut alignment: usize) -> usize {
     bits
 }
 
+/// Returns whether a value is a power of two or not.
 #[inline]
 pub fn is_pow2(val: usize) -> bool {
     val & (val - 1) == 0

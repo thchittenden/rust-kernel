@@ -1,6 +1,5 @@
 use core::prelude::*;
 use core::ops::{Deref, DerefMut};
-use alloc::rc::Rc;
 use link::{DoubleLink, HasDoubleLink};
 
 pub struct Linked<T: ?Sized> {

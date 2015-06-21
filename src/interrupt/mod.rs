@@ -1,20 +1,33 @@
+//! This module defines the x86 interrupt interface. 
+//! 
+//! Interrupt handler wrappers are found in wrapper.S. These wrappers all call the Rust interrupt
+//! dispatch routine which calls the relevent handler contained in the Interrupt Vector Table. By
+//! doing this, there is one common entry point for all interrupts in Rust code.
+//!
+//! The wrappers push all GP registers and pass pointers to the PUSHA and IRET stack regions which
+//! gives all interrupt handlers full control of where they return to.
+//!
 #![crate_name="interrupt"]
 #![crate_type="rlib"]
-#![feature(no_std,core,concat_idents)]
+#![feature(no_std,core)]
 #![no_std]
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
 
+/// The 8259PIC driver.
 pub mod pic;
+
+/// The clock driver.
 pub mod timer;
+
 mod idt;
 
 use core::prelude::*;
 use timer::init_timer;
 use pic::init_pic;
 use idt::init_idt;
-use util::{asm, USER_CODE_SEGMENT};
+use util::{asm, KERNEL_CODE_SEGMENT};
 
 // x86 Core Interrupts.
 pub const DIVIDE_ERROR_IRQ: u8          = 0;
@@ -53,6 +66,11 @@ pub const FPU_INT_IRQ: u8               = 45;
 pub const PRIMARY_ATA_INT_IRQ: u8       = 46;
 pub const SECONDARY_ATA_INT_IRQ: u8     = 47;
 
+/// The GP registers pushed during a `pusha` instruction. It is important to not let the user
+/// access the `esp` field because it does not correspond to any useful information, only where the
+/// stack pointer was before the `pusha` instruction. The actual `esp` is in the IRet struct.
+#[repr(C, packed)]
+#[allow(missing_docs)]
 pub struct Regs {
     pub edi: u32, 
     pub esi: u32,
@@ -64,6 +82,10 @@ pub struct Regs {
     pub eax: u32,
 }
 
+/// Encapuslates the data pushed to stack during an interrupt. It is important to prevent users
+/// from manually accessing the ESP/SS entries since they will not be valid if the interrupt
+/// occurred in kernel land.
+#[repr(C, packed)]
 pub struct IRet {
     error_code: u32,
     eip: u32,
@@ -74,38 +96,48 @@ pub struct IRet {
 }
 
 impl IRet {
-     
+  
+    /// Returns whether the interrupt came from kernel mode or not.
+    pub fn in_kernel(&self) -> bool {
+        self.cs as u16 == KERNEL_CODE_SEGMENT
+    }
+
+    /// Tries to return the user land stack pointer in the IRet struct. If the interrupt occurred
+    /// while in kernel land then ESP is not pushed to the stack.
     pub fn get_esp(&self) -> Option<u32> {
-        if self.cs as u16 == USER_CODE_SEGMENT {
-            Some(self.esp)
-        } else {
+        if self.in_kernel() {
             None
+        } else {
+            Some(self.esp)
         }
     }
 
+    /// Tries to return the user land stack segment in the IRet struct. If the interrupt occurred
+    /// while in kernel land then SS is not pushed to the stack.
     pub fn get_ss(&self) -> Option<u32> {
-        if self.cs as u16 == USER_CODE_SEGMENT {
-            Some(self.ss) 
-        } else {
+        if self.in_kernel() {
             None
+        } else {
+            Some(self.esp)
         }
     }
 
 }   
 
+/// An Interrupt Service Routine. These functions take the interrupt number and mutable references
+/// to the registers and return information. This allows them to fully control where they return
+/// to.
 pub type ISR = fn(u8, &mut Regs, &mut IRet);
+
+/// An interrupt vector table. This contains all registered ISRs. We manually mark it as Sync so we
+/// can access it mutably and globally.
 struct IVT {
     vectors: [Option<ISR>; 256],
 }
 unsafe impl Sync for IVT { }
 static mut IVT: IVT = IVT { vectors: [None; 256] };
 
-pub fn init() {
-    init_pic();
-    init_idt();
-    init_timer();
-}
-
+/// Sets an interrupt number's handler to the given ISR.
 pub fn set_isr(irq: u8, isr: ISR) {
     // We know this is safe because the only place we only assign to this table with interrupts
     // disabled.
@@ -114,6 +146,13 @@ pub fn set_isr(irq: u8, isr: ISR) {
         assert!(IVT.vectors[irq as usize].is_none());
         IVT.vectors[irq as usize] = Some(isr);
     }
+}
+
+/// Initializes the interrupt module. 
+pub fn init() {
+    init_pic();
+    init_idt();
+    init_timer();
 }
 
 /// The interrupt dispatcher. This is called by all interrupt wrappers and dispatches the interrupt

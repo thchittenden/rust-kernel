@@ -11,4 +11,5 @@ extern crate alloc;
 
 #[macro_use] pub mod condvar;
 #[macro_use] pub mod semaphore;
+#[macro_use] pub mod rwlock;
 

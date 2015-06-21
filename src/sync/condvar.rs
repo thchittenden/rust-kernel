@@ -17,12 +17,20 @@ macro_rules! static_condvar {
 }
 
 impl CondVar {
+
+    pub fn new() -> CondVar {
+        unimplemented!()
+    }
     
-    pub fn wait<T>(&self, _: &MutexGuard<T>) {
+    pub fn wait<T>(&self, _: MutexGuard<T>) -> MutexGuard<T> {
         unimplemented!()
     }
 
     pub fn signal(&self) {
+        unimplemented!()
+    }
+
+    pub fn broadcast(&self) {
         unimplemented!()
     }
 

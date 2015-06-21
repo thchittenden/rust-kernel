@@ -4,15 +4,19 @@ use core::ops::Deref;
 use core::fmt;
 use boxed::Box;
 
+/// Indicates that a type has an internal reference count.
 pub trait HasRc {
+    /// Returns the reference count.
     fn get_count(&self) -> &AtomicUsize;
 }
 
+/// A reference counted pointer.
 pub struct Rc<T: ?Sized + HasRc> {
     value: *mut T
 }
 
 impl<T: ?Sized + HasRc> Rc<T> {
+    /// Constructs a new RC type.
     pub fn new(val: Box<T>) -> Rc<T> {
         val.get_count().store(1, Ordering::Relaxed);
         Rc { value: unsafe { val.into_raw() } }

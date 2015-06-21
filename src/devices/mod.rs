@@ -96,10 +96,6 @@ pub struct DeviceManager {
     devices_map: HashMap<DeviceClass, Linked<Vec<Rc<Device>>>>,
 }
 
-fn drivers_map_key<'a>(x: &'a Linked<Driver>) -> &'a DeviceClass {
-    x.borrow_device_class().unwrap()
-}
-
 impl DeviceManager {
     
     pub fn new() -> DeviceManager {
@@ -111,7 +107,7 @@ impl DeviceManager {
     
     // Registers a driver for future use by the system.
     pub fn register_driver(&mut self, driver: Box<Linked<Driver>>) {
-        trace!("registering driver {}", driver.get_name());
+        info!("registering driver {}", driver.get_name());
 
         // Try to get any devices the driver supports.
         driver.get_device().map(|device| self.register_device(device));
@@ -143,7 +139,7 @@ impl DeviceManager {
     }
 
     pub fn register_device(&mut self, device: Box<Device>) {
-        trace!("registering device {}", device.get_name());
+        info!("registering device {}", device.get_name());
 
         let class = device.get_class();
         

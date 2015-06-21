@@ -15,6 +15,7 @@ const INT_FREQ: u32 = 1_000;
 /// The timer divider.
 const TIMER_DIV: u32 = TIMER_FREQ / INT_FREQ;
 
+/// x86 timer commands.
 bitflags! {
     flags TimerCommand: u8 {
         const Binary = 0b0000_0000,
@@ -34,6 +35,7 @@ bitflags! {
     }
 }
 
+/// Initializes the timer and sets the default frequency.
 pub fn init_timer() {
     set_frequency(INT_FREQ);
 }

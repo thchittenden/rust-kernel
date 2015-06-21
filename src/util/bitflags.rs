@@ -114,6 +114,7 @@ macro_rules! bitflags {
     }) => {
         #[derive(Copy, PartialEq, Eq, Clone, PartialOrd, Ord, Hash)]
         $(#[$attr])*
+        #[allow(missing_docs)]
         pub struct $BitFlags {
             bits: $T,
         }
@@ -139,6 +140,8 @@ macro_rules! bitflags {
                 $BitFlags { bits: $($value)|+ }
             }
 
+            /// Clears the bitflags field.
+            #[inline]
             pub fn clear(&mut self) {
                 self.bits = 0
             }

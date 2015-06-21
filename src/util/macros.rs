@@ -9,6 +9,17 @@ macro_rules! linker_sym {
 }
 
 #[macro_export]
+macro_rules! try_op {
+    ($exp:expr) => ({
+        use core::option::Option::{Some, None};
+        match $exp {
+            None => return None,
+            Some(val) => val
+        }
+    })
+}
+
+#[macro_export]
 macro_rules! align {
     ($val:expr, $align:expr) => ({
         assert!($crate::is_pow2($align));

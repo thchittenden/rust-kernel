@@ -5,6 +5,7 @@ const CR4_PGE: u32 = 1 << 7;
 
 const IF_FLAG: u32 = 1 << 9;
 
+/// Returns the current EFLAGS register.
 pub fn get_eflags() -> u32 {
     let mut eflags: u32;
     unsafe { asm! ("pushf\n\t
@@ -17,22 +18,27 @@ pub fn get_eflags() -> u32 {
     eflags
 }
 
+/// Returns whether interrupts are enabled or not.
 pub fn interrupts_enabled() -> bool {
     get_eflags() & IF_FLAG != 0
 }
 
+/// Enables interrupts.
 pub fn enable_interrupts() {
     unsafe { asm!("sti") }
 }
 
+/// Disables interrupts.
 pub fn disable_interrupts() {
     unsafe { asm!("cli") }
 }
 
+/// Sets the CR3 register to the given value.
 pub fn set_cr3(cr3: usize) {
     unsafe { asm!("mov $0, %cr3" :: "r"(cr3)) }
 }
 
+/// Enables paging.
 pub fn enable_paging() {
     unsafe { 
         asm!("mov %cr0, %eax\n\t
@@ -44,6 +50,7 @@ pub fn enable_paging() {
     }
 }
 
+/// Enables page directories to contain 4MB regions.
 pub fn enable_4mb_pages() {
     unsafe {
         asm!("mov %cr4, %eax\n\t
@@ -55,6 +62,7 @@ pub fn enable_4mb_pages() {
     }
 }
 
+/// Enable page table global bit.
 pub fn enable_global_pages() {
     unsafe {
         asm!("mov %cr4, %eax\n\t
@@ -66,6 +74,7 @@ pub fn enable_global_pages() {
     }
 }
 
+/// Write 4 bytes to an I/O address.
 pub fn outb32(addr: u16, val: u32) {
     unsafe {
         asm!("mov $0, %dx\n\t
@@ -77,6 +86,7 @@ pub fn outb32(addr: u16, val: u32) {
     }
 }
 
+/// Read 4 bytes from an I/O address.
 pub fn inb32(addr: u16) -> u32 {
     let mut res: u32;
     unsafe {
@@ -91,6 +101,7 @@ pub fn inb32(addr: u16) -> u32 {
 
 }
 
+/// Write 8 bytes to an I/O address.
 pub fn outb8(addr: u16, val: u8) {
     unsafe { 
         asm!("mov $0, %dx\n\t
@@ -102,6 +113,7 @@ pub fn outb8(addr: u16, val: u8) {
     }
 }
 
+/// Read 8 bytes from an I/O address.
 pub fn inb8(addr: u16) -> u8 {
     let mut res: u8;
     unsafe {

@@ -11,7 +11,7 @@
 //!
 
 #[macro_use] extern crate core;
-extern crate util;
+#[macro_use] extern crate util;
 extern crate alloc;
 
 /// An aliasable mutable pointer. This completely subverts all safety provided by Rust but makes it
@@ -39,3 +39,6 @@ pub mod hashmap;
 
 /// A vector.
 pub mod vec;
+
+/// A uniform interface to both dynamic and static strings.
+pub mod string;

@@ -17,6 +17,7 @@ extern crate task;
 extern crate mem;
 extern crate devices;
 extern crate collections;
+extern crate fs;
 
 mod test;
 
@@ -47,6 +48,9 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     // Initialize physical memory and virtual memory and enable paging.
     mem::init(hdr);
     
+    // Create the root file system.
+    fs::init();
+
     // Initialize all devices.
     devices::init();
 
@@ -55,6 +59,7 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
 
     // Perform some self tests.
     test::test_all();
+
 
     // Do nothing.
     loop { }

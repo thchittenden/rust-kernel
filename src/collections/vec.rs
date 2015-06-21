@@ -4,6 +4,7 @@
 use core::prelude::*;
 use core::ops::{Index, IndexMut};
 use core::{ptr, mem, marker};
+use core::slice;
 use alloc::{allocate_raw, deallocate_raw, reallocate_raw};
 
 /// A growable vector.
@@ -72,6 +73,11 @@ impl<T> Vec<T> {
         } else {
             None
         }
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        // We know this is safe because we know we've allocated at least self.len entries.
+        unsafe { slice::from_raw_parts(self.raw, self.len) }
     }
 
 }

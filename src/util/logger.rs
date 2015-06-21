@@ -1,13 +1,21 @@
 use core::marker::Sync;
 use core::fmt;
 
+/// Log levels available.
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum LogLevel {
+    /// Logs everything. Trace is used for logging fine grained debugging events.
     Trace = 1,
+    /// Logs debugging events at a higher level than trace.
     Debug = 2,
+    /// Logs events that the user may be curious about.
     Info = 3,
+    /// Logs events that may prevent the system from functioning optimally but that do not prevent
+    /// it from running.
     Warn = 4,
+    /// Logs events that may prevent the system from continuing to function.
     Error = 5,
+    /// Logs nothing. 
     Quiet = 6,
 }
 
@@ -16,7 +24,11 @@ pub enum LogLevel {
 extern {
     fn logger_hook(s: &str) -> fmt::Result;
 }
+
+/// The log writer struct that all log messages are funneled through. This hooks into a library at
+/// a higher level in order to perform the IO.
 pub struct LogWriter;
+
 impl fmt::Write for LogWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         unsafe { logger_hook(s) }

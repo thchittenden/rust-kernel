@@ -9,6 +9,9 @@ pub const MULTIBOOT_INFO_AOUT_SYMS: u32 = 0x10;
 pub const MULTIBOOT_INFO_ELF_SHDR: u32 = 0x20;
 pub const MULTIBOOT_INFO_MEM_MAP: u32 = 0x40;
 
+/// The v1 Multiboot header defined here:
+/// https://www.gnu.org/software/grub/manual/multiboot/multiboot.html. 
+/// This is created by the bootloader and passed to our kernel main function.
 #[derive(Debug)]
 #[repr(C, packed)]
 pub struct MultibootHeader {
@@ -74,9 +77,7 @@ pub const MULTIBOOT_MEMORY_BADRAM: u32 = 5;
 // so there is an additional 4 bytes between each entry.
 pub const MULTIBOOT_MMAP_ENTRY_OFFSET: isize = 4;
 
-// For some reason, we can't actually print these using the derived Debug. Some
-// function deep in the call chain for u64 panics about a wrong digit.
-#[derive(Debug)]
+/// An entry in the memory map. This defines a region of memory on the host machine.
 #[repr(C, packed)]
 pub struct MultibootMMapEntry {
     entry_size: u32,
@@ -86,7 +87,9 @@ pub struct MultibootMMapEntry {
 }
 
 impl MultibootHeader {
-    
+   
+    /// This function walks the memory map defined for a multiboot header and calls the argument
+    /// function for every contiguous region of memory.
     pub fn walk_mmap<F>(&self, op: F) where F: Fn(usize, usize) {
         assert!(self.flags & MULTIBOOT_INFO_MEM_MAP != 0);
 
