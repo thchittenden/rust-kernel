@@ -12,9 +12,9 @@ use alloc::boxed::Box;
 use core::prelude::*;
 use core::hash::{Hash, Hasher};
 use core::marker;
-use dynarray::DynArray;
+use dynarray::{self, DynArray};
 use link::HasSingleLink;
-use slist::SList;
+use slist::{self, SList};
 
 /// We assume the hash function is uniformly distributed in the lowest bits so that this doesn't
 /// result in horrible collisions. Otherwise this should be prime!
@@ -24,29 +24,6 @@ const FNV_PRIME: u64 = 0x100000001b3;
 
 pub trait HasKey<K> {
     fn get_key(&self) -> &K;
-}
-
-pub struct FNVHasher {
-    accum: u64
-}
-
-impl FNVHasher {
-    pub fn new () -> FNVHasher {
-        FNVHasher { accum: FNV_BASE }
-    }
-}
-
-impl Hasher for FNVHasher {
-    fn finish(&self) -> u64 {
-        self.accum
-    }
-
-    fn write(&mut self, bytes: &[u8]) {
-        for byte in bytes {
-            self.accum *= FNV_PRIME;
-            self.accum ^= *byte as u64;
-        }
-    }
 }
 
 pub struct HashMap<K: Hash + Eq, V: HasKey<K> + HasSingleLink<V> + ?Sized> {
@@ -139,6 +116,60 @@ impl<K: Hash + Eq, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K, V> {
         }
         self.lookup_mut(key).unwrap()
     }
+
+    pub fn iter_keys(&self) -> KeyIter<K, V> {
+        unimplemented!()
+    }
 }
 
+pub struct ValueIter<'a, K: 'a + Eq + Hash, V: 'a + HasKey<K> + HasSingleLink<V> + ?Sized> {
+    table_iter: dynarray::Iter<'a, SList<V>>,
+    entry_iter: slist::Iter<'a, V>,
+    _marker: marker::PhantomData<&'a K>,
+}
+
+impl<'a, K: Eq + Hash, V: HasKey<K> + HasSingleLink<V>> Iterator for ValueIter<'a, K, V> {
+    type Item = &'a V;
+    fn next(&mut self) -> Option<&'a V> {
+        self.entry_iter.next().or_else(|| {
+            self.entry_iter = try_op!(self.table_iter.next()).into_iter();
+            self.entry_iter.next()
+        })
+    }
+}
+
+pub struct KeyIter<'a, K: 'a + Eq + Hash, V: 'a + HasKey<K> + HasSingleLink<V> + ?Sized> {
+    value_iter: ValueIter<'a, K, V>
+}
+
+impl<'a, K: Eq + Hash, V: HasKey<K> + HasSingleLink<V>> Iterator for KeyIter<'a, K, V> {
+    type Item = &'a K;
+    fn next(&mut self) -> Option<&'a K> {
+        self.value_iter.next().map(|v| v.get_key())
+    }
+}
+
+
+pub struct FNVHasher {
+    accum: u64
+}
+
+impl FNVHasher {
+    pub fn new () -> FNVHasher {
+        FNVHasher { accum: FNV_BASE }
+    }
+}
+
+impl Hasher for FNVHasher {
+    fn finish(&self) -> u64 {
+        self.accum
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        for byte in bytes {
+            self.accum *= FNV_PRIME;
+            self.accum ^= *byte as u64;
+        }
+    }
+}
 

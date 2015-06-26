@@ -1,6 +1,6 @@
 #![crate_name="boot"]
 #![crate_type="rlib"]
-#![feature(no_std,core)]
+#![feature(no_std,core,core_prelude)]
 #![no_std]
 //!
 //! This module is the entry point of the kernel. It is responsible for initializing all other

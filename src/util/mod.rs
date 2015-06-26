@@ -3,7 +3,7 @@
 //!
 #![crate_name="util"]
 #![crate_type="rlib"]
-#![feature(no_std,core,asm,unique)]
+#![feature(no_std,core,asm,unique,core_prelude)]
 #![no_std]
 
 #[macro_use] extern crate core;

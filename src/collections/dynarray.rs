@@ -4,7 +4,7 @@
 //! initialized properly.
 //!
 use core::prelude::*;
-use core::{mem, ptr};
+use core::{mem, ptr, marker};
 use core::ops::{Index, IndexMut};
 use core::intrinsics::drop_in_place;
 use alloc::{allocate_raw, reallocate_raw, deallocate_raw};
@@ -33,6 +33,20 @@ impl<T: Default> DynArray<T> {
         })
     }
 
+    pub fn clone(&self) -> Option<DynArray<T>> where T: Clone {
+        let size = self.len * mem::size_of::<T>();
+        let align = mem::min_align_of::<T>();
+        let addr = try_op!(allocate_raw(size, align));
+        let mut dyn = DynArray {
+            raw: addr as *mut T,
+            len: self.len,
+        };
+        for i in 0..self.len {
+            dyn[i] = self[i].clone();
+        }
+        Some(dyn)
+    }
+
     /// Attempts to change the size of the array and returns whether it was successful or not.
     #[must_use]
     pub fn resize(&mut self, new_count: usize) -> bool {
@@ -59,6 +73,22 @@ impl<T: Default> DynArray<T> {
         self.len
     }
 
+    pub fn get(&self, idx: usize) -> Option<&T> {
+        if idx < self.len {
+            Some(unsafe { &*self.raw.offset(idx as isize) })
+        } else {
+            None
+        }
+    }
+
+    pub fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
+        if idx < self.len {
+            Some(unsafe { &mut*self.raw.offset(idx as isize) })
+        } else {
+            None
+        }
+    }
+
 }
 
 impl<T> Drop for DynArray<T> {
@@ -78,17 +108,117 @@ impl<T> Drop for DynArray<T> {
     }
 }
 
-impl<T> Index<usize> for DynArray<T> {
+impl<T: Default> Index<usize> for DynArray<T> {
     type Output = T;
     fn index(&self, idx: usize) -> &T {
-        assert!(idx < self.len);
-        unsafe { &*self.raw.offset(idx as isize) }
+        self.get(idx).unwrap()
     }
 }
 
-impl<T> IndexMut<usize> for DynArray<T> {
+impl<T: Default> IndexMut<usize> for DynArray<T> {
     fn index_mut(&mut self, idx: usize) -> &mut T {
-        assert!(idx < self.len);
-        unsafe { &mut*self.raw.offset(idx as isize) }
+        self.get_mut(idx).unwrap()
     }
 }
+
+impl<T> IntoIterator for DynArray<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+    fn into_iter(mut self) -> IntoIter<T> {
+        let len = self.len;
+        self.len = mem::POST_DROP_USIZE;
+        IntoIter {
+            raw: self.raw,
+            idx: 0,
+            len: len,
+        }
+    }
+}   
+
+impl<'a, T> IntoIterator for &'a DynArray<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+    fn into_iter(self) -> Iter<'a, T> {
+        Iter {
+            raw: self.raw,
+            idx: 0,
+            len: self.len,
+            _marker: marker::PhantomData
+        }
+    }
+}
+
+
+/// A consuming iterator.
+pub struct IntoIter<T> {
+    raw: *mut T,
+    idx: usize,
+    len: usize,
+}
+
+/// A borrowing iterator.
+pub struct Iter<'a, T: 'a> {
+    raw: *const T,
+    idx: usize,
+    len: usize,
+    _marker: marker::PhantomData<&'a T>
+}
+
+/// A mutably borrowing iterator.
+pub struct IterMut<'a, T: 'a> {
+    raw: *mut T,
+    idx: usize,
+    len: usize,
+    _marker: marker::PhantomData<&'a mut T>
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        if self.idx == self.len {
+            None
+        } else {
+            let res = Some(unsafe { ptr::read(self.raw.offset(self.idx as isize)) });
+            self.idx += 1;
+            res
+        }
+    }
+}
+
+impl<T> Drop for IntoIter<T> {
+    fn drop(&mut self) {
+        // If we haven't already been dropped, deallocate the space.
+        if self.idx != mem::POST_DROP_USIZE {
+            let addr = self.raw as usize;
+            let size = self.len * mem::size_of::<T>();
+            deallocate_raw(addr, size);
+        }
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<&'a T> {
+        if self.idx == self.len {
+            None 
+        } else {
+            let res = Some(unsafe { &*self.raw.offset(self.idx as isize) });
+            self.idx += 1;
+            res
+        }
+    }
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+    fn next(&mut self) -> Option<&'a mut T> {
+        if self.idx == self.len {
+            None
+        } else {
+            let res = Some(unsafe { &mut *self.raw.offset(self.idx as isize) });
+            self.idx += 1;
+            res
+        }
+    }
+}
+

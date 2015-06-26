@@ -5,8 +5,14 @@ use mutex::Mutex;
 use condvar::CondVar;
 
 pub struct ReaderGuard<'a, T: 'a> {
+    dropped: bool,
     lock: &'a RWLock<T>,
     data: &'a UnsafeCell<T>,
+}
+
+pub struct ReaderGuardMap<'a, T: 'a, U: 'a> {
+    lock: &'a RWLock<T>,
+    data: U
 }
 
 pub struct WriterGuard<'a, T: 'a> {
@@ -59,6 +65,7 @@ impl<T> RWLock<T> {
         state.nreaders_waiting -= 1;
         state.nreaders += 1;
         ReaderGuard {
+            dropped: false,
             lock: &self,
             data: &self.data
         }
@@ -106,10 +113,28 @@ impl<T> RWLock<T> {
 
 unsafe impl <T> Sync for RWLock<T> { }
 
+impl<'lock, T> ReaderGuard<'lock, T> {
+    pub fn map<U, F: Fn(&'lock T) -> U>(mut self, f: F) -> ReaderGuardMap<'lock, T, U> {
+        self.dropped = true;
+        let u: U = f(unsafe { &*self.data.get() });
+        ReaderGuardMap {
+            lock: self.lock,
+            data: u,
+        }
+    }
+}
+
 impl<'lock, T> Deref for ReaderGuard<'lock, T> {
     type Target = T;
     fn deref<'a>(&'a self) -> &'a T {
         unsafe { &*self.data.get() }
+    }
+}
+
+impl<'lock, T, U: 'lock> Deref for ReaderGuardMap<'lock, T, U> {
+    type Target = U;
+    fn deref<'a>(&'a self) -> &'a U {
+        unsafe { &self.data }
     }
 }
 
@@ -126,7 +151,24 @@ impl<'lock, T> DerefMut for WriterGuard<'lock, T> {
     }
 }
 
+// It's safe to have a DerefMut trait for a ReaderGuardMap because the ReaderGuardMap owns the
+// data.
+impl<'lock, T, U: 'lock> DerefMut for ReaderGuardMap<'lock, T, U> {
+    fn deref_mut<'a>(&'a mut self) -> &'a mut U {
+        unsafe { &mut self.data }
+    }
+}
+
 impl<'lock, T> Drop for ReaderGuard<'lock, T> {
+    fn drop(&mut self) {
+        if !self.dropped {
+            self.dropped = true;
+            self.lock.unlock_reader();
+        }
+    }
+}
+
+impl<'lock, T, U> Drop for ReaderGuardMap<'lock, T, U> {
     fn drop(&mut self) {
         self.lock.unlock_reader();
     }

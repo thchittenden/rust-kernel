@@ -1,6 +1,6 @@
 #![crate_name="mutex"]
 #![crate_type="rlib"]
-#![feature(no_std,core)]
+#![feature(no_std,core,core_prelude)]
 #![no_std]
 //!
 //! This module contains the kernel's mutex implementation.

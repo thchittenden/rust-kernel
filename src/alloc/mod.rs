@@ -1,6 +1,6 @@
 #![crate_name="alloc"]
 #![crate_type="rlib"]
-#![feature(no_std,lang_items,unique,core,filling_drop)]
+#![feature(no_std,lang_items,unique,core,filling_drop,core_prelude,core_intrinsics,unsize,coerce_unsized)]
 #![no_std]
 //!
 //! The kernel allocation library.

@@ -1,6 +1,6 @@
 #![crate_name="fs"]
 #![crate_type="rlib"]
-#![feature(no_std,core)]
+#![feature(no_std,core,core_prelude,core_str_ext)]
 #![no_std]
 
 #[macro_use] extern crate core;
@@ -24,19 +24,19 @@ const PATH_SEP: &'static str = "/";
 
 pub trait File {
     
-    fn read(&mut self, addr: usize, bytes: usize) -> bool;
+    unsafe fn read(&self, into: usize, offset: usize, count: usize) -> usize;
 
-    fn write(&mut self, addr: usize, bytes: usize) -> bool;
-
-    fn seek(&mut self, idx: usize) -> bool;
+    unsafe fn write(&mut self, from: usize, offset: usize, count: usize) -> usize;
 
 }
 
+pub type FileIter<'a> = Iterator<Item=&'a String>;
+
 pub trait FileCursor {
     
-    fn open(&self, path: Path) -> Option<Box<File>>;
+    fn open(&self, file: String) -> Option<Box<File>>;
 
-    fn list(&self) -> Option<Vec<&String>>;
+    fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a String> + 'a>>;
 
     fn mkdir(&self, name: &str) -> Option<Box<FileCursor>>;
 
@@ -73,8 +73,6 @@ impl<'a> IntoIterator for &'a Path {
         self.path.as_str().split(PATH_SEP)
     }
 }
-
-
 
 static ROOT: Global<VFS> = global_init!();
 

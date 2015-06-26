@@ -31,6 +31,21 @@ impl<T> Vec<T> {
         })
     }
 
+    pub fn clone(&self) -> Option<Vec<T>> where T: Clone {
+        let size = self.len * mem::size_of::<T>();
+        let align = mem::min_align_of::<T>();
+        let addr = try_op!(allocate_raw(size, align));
+        let mut vec = Vec {
+            raw: addr as *mut T,
+            cap: self.len,
+            len: self.len,
+        };
+        for i in 0..self.len {
+            vec[i] = self[i].clone();
+        }
+        Some(vec)
+    }
+
     /// Returns the current number of elements in the vector.
     pub fn len(&self) -> usize {
         self.len
@@ -97,11 +112,15 @@ impl<T> Drop for Vec<T> {
 impl<T> IntoIterator for Vec<T> {
     type Item = T;
     type IntoIter = IntoIter<T>;
-    fn into_iter(self) -> IntoIter<T> {
+    fn into_iter(mut self) -> IntoIter<T> {
+        // Prevent the vector from being dropped. We will deallocate the memory when we drop the
+        // IntoIter.
+        let len = self.len;
+        self.len = mem::POST_DROP_USIZE;
         IntoIter {
             raw: self.raw,
             idx: 0,
-            len: self.len,
+            len: len,
         }
     }
 }   

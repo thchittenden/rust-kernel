@@ -1,6 +1,6 @@
 #![crate_name="sched"]
 #![crate_type="rlib"]
-#![feature(no_std,core)]
+#![feature(no_std,core,core_prelude)]
 #![no_std]
 
 #[macro_use] extern crate core;

@@ -1,6 +1,6 @@
 #![crate_name="rt"]
 #![crate_type="rlib"]
-#![feature(no_std,core,lang_items)]
+#![feature(no_std,core,core_prelude,lang_items)]
 #![no_std]
 #![no_builtins]
 

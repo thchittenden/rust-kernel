@@ -2,13 +2,14 @@ use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc};
 use core::prelude::*;
 use core::atomic::AtomicUsize;
-use collections::hashmap::{HashMap, HasKey};
+use collections::hashmap::{HashMap, HasKey, KeyIter};
 use collections::dynarray::DynArray;
 use collections::link::{HasDoubleLink, DoubleLink};
 use collections::string::String;
 use collections::vec::Vec;
-use sync::rwlock::RWLock;
-use super::{Path, File, FileCursor, FileSystem};
+use collections::slist;
+use sync::rwlock::{ReaderGuard, ReaderGuardMap, RWLock};
+use super::{Path, File, FileCursor, FileIter, FileSystem};
 
 /// A virtual file system.
 pub struct VFS {
@@ -33,20 +34,56 @@ impl FileSystem for VFS {
     }
 }
 
+struct VFSFileIter<'a> {
+    lock: ReaderGuardMap<'a, HashMap<String, VFSEntry>, KeyIter<'a, String, VFSEntry>>,
+}
+
+impl<'a> Iterator for VFSFileIter<'a> {
+    type Item = &'a String;
+    fn next(&mut self) -> Option<&'a String> {
+        self.lock.next()
+    }
+}
+
 struct VFSCursor {
     cur_dir: Rc<VFSNode>
 }
 
+fn mkiter<'a>(x: &'a VFSCursor) -> VFSFileIter<'a> {
+    let lock = x.cur_dir.entries.lock_reader();
+    VFSFileIter {
+        lock: lock.map(|map| map.iter_keys()),
+    }
+}
+
 impl FileCursor for VFSCursor {
-    fn open(&self, path: Path) -> Option<Box<File>> {
-        unimplemented!()
+    fn open(&self, file: String) -> Option<Box<File>> {
+        assert!(self.cur_dir.alive);
+        let entries = self.cur_dir.entries.lock_reader();
+        match entries.lookup(&file) {
+            None => None,
+            Some(&VFSEntry::Node{ .. }) => None,
+            Some(&VFSEntry::File{ ref file, .. }) => {
+                let clone = try_op!(file.clone());  
+                let boxed = try_op!(Box::new(clone));
+                Some(boxed)
+            }
+        }
+        
     }
-    fn list(&self) -> Option<Vec<&String>> {
-        unimplemented!()
+
+    fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a String> + 'a>> {
+        let lock = self.cur_dir.entries.lock_reader();
+        let boxed = try_op!(Box::new(VFSFileIter {
+            lock: lock.map(|map| map.iter_keys())
+        }));
+        Some(boxed)
     }
+
     fn mkdir(&self, name: &str) -> Option<Box<FileCursor>> {
         unimplemented!()
     }
+
     fn cd(&mut self, path: Path) -> bool {
         unimplemented!()
     }
@@ -110,3 +147,56 @@ struct VFSFile {
     data: DynArray<u8>
 }
 
+impl VFSFile {
+
+    pub fn new() -> Option<VFSFile> {
+        let dyn = try_op!(DynArray::new(32));
+        Some(VFSFile {
+            data: dyn
+        })
+    }
+
+    pub fn clone(&self) -> Option<VFSFile> {
+        let dynclone = try_op!(self.data.clone());
+        Some(VFSFile {
+            data: dynclone
+        })
+    }
+
+}
+
+impl File for VFSFile {
+    
+    unsafe fn read(&self, into: usize, offset: usize, count: usize) -> usize {
+        let into_ptr = into as *mut u8;
+        for i in 0..count {
+            if offset + i >= self.data.len() {
+                return i;
+            } else {
+                *into_ptr.offset(i as isize) = self.data[offset + i];
+            }
+        }
+        count
+    }
+
+    unsafe fn write(&mut self, from: usize, offset: usize, count: usize) -> usize {
+        // Try to expand the file if needed.
+        if offset + count > self.data.len() {
+            // We can ignore whether this succeeds or not because we will respect data.len()
+            // regardless.
+            let _ = self.data.resize(offset + count);
+        }
+        
+        // Write the data.
+        let from_ptr = from as *const u8;
+        for i in 0..count {
+            if offset + i >= self.data.len() {
+                return i;
+            } else {
+                self.data[offset + i] = *from_ptr.offset(i as isize);
+            }
+        }
+        count
+    }
+
+}

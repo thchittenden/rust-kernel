@@ -1,6 +1,6 @@
 #![crate_name="task"]
 #![crate_type="rlib"]
-#![feature(no_std,core)]
+#![feature(no_std,core,core_prelude)]
 #![no_std]
 //!
 //! This module contains definitions of task and thread structures.

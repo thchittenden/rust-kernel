@@ -79,6 +79,10 @@ $(BINDIR)/$(TARGET).iso: $(BINDIR)/$(TARGET)
 # Misc target.
 image: $(BINDIR)/$(TARGET).iso
 
+libcore:
+	# Not portable really.
+	rustc -o lib/libcore.rlib --target target -g -O ../rust/src/libcore/lib.rs
+
 doc: $(addprefix doc-, $(CRATES))
 doc-%: $(SRCDIR)/%/mod.rs $(DEPDIR)/%.d
 	$(RUSTDOC) $(RUSTDOCFLAGS) -o $(DOCDIR) $<
@@ -94,6 +98,6 @@ clean:
 print-%:
 	@echo '$*=$($*)' 
 
-.PHONY: all image clean doc
+.PHONY: all image clean doc libcore
 .SECONDARY:
 
