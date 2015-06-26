@@ -11,33 +11,23 @@ pub struct SemaphoreGuard<'a, T: 'a> {
 
 // Fields are marked public so they may be statically initialized.
 pub struct SemaphoreInternal {
-    pub count: usize
+    count: usize
 }
 
 pub struct Semaphore<T> {
-    pub semint: Mutex<SemaphoreInternal>,
-    pub data: UnsafeCell<T>,
-    pub cv: CondVar
-}
-
-#[macro_export]
-macro_rules! static_semaphore {
-    ($count:expr, $data:expr) => ({
-        use core::cell::UnsafeCell;
-        Semaphore {
-            semint: static_mutex!(SemaphoreInternal {
-                count: $count,
-            }),
-            data: UnsafeCell { value: $data },
-            cv: static_condvar!()
-        }
-    });
+    semint: Mutex<SemaphoreInternal>,
+    data: UnsafeCell<T>,
+    cv: CondVar
 }
 
 impl<T> Semaphore<T> {
     
     pub fn new(count: usize, data: T) -> Semaphore<T> {
-        static_semaphore!(count, data)
+        Semaphore {
+            semint: Mutex::new(SemaphoreInternal { count: count }),
+            data: UnsafeCell::new(data),
+            cv: CondVar::new(),
+        }
     }
 
     pub fn acquire(&self) -> Option<SemaphoreGuard<T>> {

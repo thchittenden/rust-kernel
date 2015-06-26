@@ -1,6 +1,6 @@
 #![crate_name="mutex"]
 #![crate_type="rlib"]
-#![feature(no_std,core,core_prelude)]
+#![feature(no_std,core,core_prelude,const_fn)]
 #![no_std]
 //!
 //! This module contains the kernel's mutex implementation.
@@ -36,6 +36,10 @@ pub struct MutexGuard<'a, T: 'a> {
     data: &'a UnsafeCell<T>,
 }
 
+pub struct UnlockedMutexGuard<'a, T: 'a> {
+    lock: &'a Mutex<T>,
+}
+
 /// The mutex object. Fields are marked public to enable static initialization.
 pub struct Mutex<T> {
 
@@ -49,27 +53,10 @@ pub struct Mutex<T> {
     pub data: UnsafeCell<T>,
 }
 
-/// Statically initializes a mutex.
-#[macro_export]
-macro_rules! static_mutex {
-    ($data:expr) => ({
-        use core::atomic::ATOMIC_USIZE_INIT;
-        use core::cell::UnsafeCell;
-        use $crate::Mutex;
-        Mutex {
-            curr_ticket: ATOMIC_USIZE_INIT,
-            next_ticket: ATOMIC_USIZE_INIT,
-            data: UnsafeCell {
-                value: $data
-            }
-        }
-    });
-}
-
 impl <T> Mutex<T> {
    
     /// Constructs a new mutex for the given data.
-    pub fn new(data: T) -> Mutex<T> {
+    pub const fn new(data: T) -> Mutex<T> {
         Mutex {
             curr_ticket: AtomicUsize::new(0),
             next_ticket: AtomicUsize::new(0),
@@ -105,6 +92,20 @@ impl <T> Mutex<T> {
 }
 
 unsafe impl <T> Sync for Mutex<T> { }
+
+impl <'mutex, T> MutexGuard<'mutex, T> {
+    pub fn unlock(self) -> UnlockedMutexGuard<'mutex, T> {
+        UnlockedMutexGuard {
+            lock: self.lock
+        }
+    }
+}
+
+impl <'mutex, T> UnlockedMutexGuard<'mutex, T> {
+    pub fn relock(self) -> MutexGuard<'mutex, T> {
+        self.lock.lock()
+    }
+}
 
 impl <'mutex, T> Deref for MutexGuard<'mutex, T> {
     type Target = T;

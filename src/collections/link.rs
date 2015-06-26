@@ -13,9 +13,24 @@ pub struct SingleLink<T: ?Sized> {
     pub link: Option<Box<T>>
 }
 
+impl<T: ?Sized> SingleLink<T> {
+    pub const fn new() -> SingleLink<T> {
+        SingleLink { link: None }
+    }
+}
+
 pub struct DoubleLink<T: ?Sized> {
     pub next: SingleLink<T>,
     pub prev: Option<Raw<T>>
+}
+
+impl<T: ?Sized> DoubleLink<T> {
+    pub const fn new() -> DoubleLink<T> {
+        DoubleLink {
+            next: SingleLink::new(),
+            prev: None,
+        }
+    }
 }
 
 pub trait HasDoubleLink<T: ?Sized> {
@@ -30,13 +45,13 @@ pub trait HasSingleLink<T: ?Sized> {
 
 impl<T: ?Sized> Default for SingleLink<T> {
     fn default() -> SingleLink<T> {
-        SingleLink { link: None }
+        SingleLink::new()
     }
 }
 
 impl<T: ?Sized> Default for DoubleLink<T> {
     fn default() -> DoubleLink<T> {
-        DoubleLink { next: SingleLink::default(), prev: None }
+        DoubleLink::new()
     }
 }
 

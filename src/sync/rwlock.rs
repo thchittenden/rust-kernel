@@ -4,12 +4,15 @@ use core::ops::{Deref, DerefMut};
 use mutex::Mutex;
 use condvar::CondVar;
 
+/// An RAII style lock for readers.
 pub struct ReaderGuard<'a, T: 'a> {
     dropped: bool,
     lock: &'a RWLock<T>,
     data: &'a UnsafeCell<T>,
 }
 
+/// An RAII style lock for derived contents of a reader lock. This is useful in cases such as the
+/// virtual file system where we want to create an iterator that is scoped to the lock. 
 pub struct ReaderGuardMap<'a, T: 'a, U: 'a> {
     lock: &'a RWLock<T>,
     data: U

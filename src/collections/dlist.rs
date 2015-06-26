@@ -12,28 +12,20 @@ use super::link::HasDoubleLink;
 
 /// A doubly linked list.
 pub struct DList<T: HasDoubleLink<T>> {
-    pub len: usize,
-    pub head: Option<Box<T>>,
-    pub tail: Option<Raw<T>>
-}
-
-/// Creates a static empty queue.
-#[macro_export]
-macro_rules! static_dlist {
-    () => ({
-        DList {
-            len: 0,
-            head: None,
-            tail: None
-        }
-    });
+    len: usize,
+    head: Option<Box<T>>,
+    tail: Option<Raw<T>>
 }
 
 impl<T: HasDoubleLink<T>> DList<T> {
    
     /// Creates a new empty list.
-    pub fn new() -> DList<T> {
-        static_dlist!()
+    pub const fn new() -> DList<T> {
+        DList {
+            len: 0,
+            head: None,
+            tail: None
+        }
     }
 
     /// Pushes an element to the head of the list.
@@ -144,6 +136,6 @@ impl<T: HasDoubleLink<T>> DList<T> {
 
 impl<T: HasDoubleLink<T>> Default for DList<T> {
     fn default() -> DList<T> {
-        static_dlist!()
+        DList::new()
     }
 }

@@ -1,6 +1,6 @@
 #![crate_name="sync"]
 #![crate_type="rlib"]
-#![feature(no_std,core,core_prelude)]
+#![feature(no_std,core,core_prelude,const_fn)]
 #![no_std]
 
 #[macro_use] extern crate core;

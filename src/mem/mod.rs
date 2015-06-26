@@ -1,6 +1,6 @@
 #![crate_name="mem"]
 #![crate_type="rlib"]
-#![feature(no_std,core,step_by,negate_unsigned,core_prelude)]
+#![feature(no_std,core,step_by,negate_unsigned,core_prelude,const_fn)]
 #![no_std]
 //!
 //! This module contains definitions for interacting with physical/virtual memory.

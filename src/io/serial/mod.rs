@@ -153,7 +153,7 @@ impl SafeSerialPort {
 
     /// Constructs a new thread-safe serial port.
     pub fn new(base: u16, baud: u32, lcr: LCR) -> SafeSerialPort {
-        SafeSerialPort { sp: static_mutex!(SerialPort::new(base, baud, lcr)) }
+        SafeSerialPort { sp: Mutex::new(SerialPort::new(base, baud, lcr)) }
     }
 
     /// Atomically writes a string to the serial port.

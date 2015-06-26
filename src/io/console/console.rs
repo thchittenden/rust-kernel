@@ -48,7 +48,7 @@ pub struct SafeConsole {
 }
 
 pub const SAFE_CONSOLE_INIT: SafeConsole = SafeConsole {
-    con: static_mutex!(CONSOLE_INIT)
+    con: Mutex::new(CONSOLE_INIT)
 };
 
 impl Console {

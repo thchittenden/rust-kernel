@@ -1,6 +1,6 @@
 #![crate_name="sched"]
 #![crate_type="rlib"]
-#![feature(no_std,core,core_prelude)]
+#![feature(no_std,core,core_prelude,const_fn)]
 #![no_std]
 
 #[macro_use] extern crate core;
@@ -34,7 +34,7 @@ struct Scheduler {
 
 static SCHED: SchedLock<Scheduler> = static_schedlock!(Scheduler {
     thread: None,
-    runnable: DList { len: 0, head: None, tail: None } 
+    runnable: DList::new()
 });
 
 pub fn init() {

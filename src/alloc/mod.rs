@@ -1,6 +1,6 @@
 #![crate_name="alloc"]
 #![crate_type="rlib"]
-#![feature(no_std,lang_items,unique,core,filling_drop,core_prelude,core_intrinsics,unsize,coerce_unsized)]
+#![feature(no_std,const_fn,lang_items,unique,core,filling_drop,core_prelude,core_intrinsics,unsize,coerce_unsized)]
 #![no_std]
 //!
 //! The kernel allocation library.
@@ -95,7 +95,7 @@ trait Allocator {
 
 }
 
-static ALLOCATOR: Mutex<LMMAllocator> = static_mutex!(LMM_ALLOCATOR_INIT);
+static ALLOCATOR: Mutex<LMMAllocator> = Mutex::new(LMM_ALLOCATOR_INIT);
 
 /// Initializes the allocation library and allocates all memory between `__heap_start` and
 /// `__heap_end` to the allocator.

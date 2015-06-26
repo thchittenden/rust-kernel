@@ -1,6 +1,6 @@
 #![crate_name="io"]
 #![crate_type="rlib"]
-#![feature(no_std,core,core_prelude,core_str_ext)]
+#![feature(no_std,core,core_prelude,core_str_ext,const_fn)]
 #![no_std]
 //! 
 //! This module contains interfaces for interacting with various IO components such as serial

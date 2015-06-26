@@ -6,7 +6,7 @@ use util::{PAGE_SIZE, is_page_aligned};
 use util::rawbox::{RawBox, Unallocated};
 logger_init!(Trace);
 
-static FREE_FRAME_LIST: Mutex<Option<RawBox<Frame>>> = static_mutex!(None);
+static FREE_FRAME_LIST: Mutex<Option<RawBox<Frame>>> = Mutex::new(None);
 
 /// A frame available for allocation.
 pub struct Frame {
