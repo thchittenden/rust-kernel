@@ -60,25 +60,37 @@ pub struct FileCursor {
 impl FileCursor {
     
     pub fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a str> + 'a>> {
-        trace!("listing {:?}", self.curdir);
+        trace!("listing {}", self.curdir);
         self.node.list()
     }
 
     pub fn make_node(&self, node: String) -> bool {
-        trace!("making node {} at {:?}", node, self.curdir);
+        trace!("making node {} at {}", node, self.curdir);
         self.node.make_node(node)
     }
 
     pub fn cd(&mut self, path: Path) -> bool {
+        trace!("trying to cd from {} to {}/{}", self.curdir, self.curdir, path);
         let mut cur = self.node.clone();
         for dir in path.dirs() {
             match cur.open_node(dir) {
                 Some(node) => cur = node,
-                None => return false,
+                None => {
+                    trace!("directory {} does not exist", dir);
+                    return false; 
+                }
             }
         }
-        self.node = cur;
-        true
+        if (self.curdir.append(path)) {
+            self.node = cur;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn get_cd(&self) -> &Path {
+        &self.curdir
     }
 
 }
