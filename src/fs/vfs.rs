@@ -6,10 +6,8 @@ use collections::hashmap::{HashMap, HasKey, KeyIter};
 use collections::dynarray::DynArray;
 use collections::link::{HasDoubleLink, DoubleLink};
 use collections::string::String;
-use collections::vec::Vec;
-use collections::slist;
-use sync::rwlock::{ReaderGuard, ReaderGuardMap, RWLock};
-use super::{Path, File, FileCursor, FileIter, FileSystem};
+use sync::rwlock::{ReaderGuardMap, RWLock};
+use super::{Path, File, FileCursor, FileSystem};
 
 /// A virtual file system.
 pub struct VFS {
@@ -49,13 +47,6 @@ struct VFSCursor {
     cur_dir: Rc<VFSNode>
 }
 
-fn mkiter<'a>(x: &'a VFSCursor) -> VFSFileIter<'a> {
-    let lock = x.cur_dir.entries.lock_reader();
-    VFSFileIter {
-        lock: lock.map(|map| map.iter_keys()),
-    }
-}
-
 impl FileCursor for VFSCursor {
     fn open(&self, file: String) -> Option<Box<File>> {
         assert!(self.cur_dir.alive);
@@ -80,11 +71,11 @@ impl FileCursor for VFSCursor {
         Some(boxed)
     }
 
-    fn mkdir(&self, name: &str) -> Option<Box<FileCursor>> {
+    fn mkdir(&self, _: &str) -> Option<Box<FileCursor>> {
         unimplemented!()
     }
 
-    fn cd(&mut self, path: Path) -> bool {
+    fn cd(&mut self, _: Path) -> bool {
         unimplemented!()
     }
 }
@@ -96,7 +87,7 @@ struct VFSNode {
 }
 
 impl VFSNode {
-    fn new() -> Option<VFSNode> {
+    pub fn new() -> Option<VFSNode> {
         let map = try_op!(HashMap::new());
         Some(VFSNode {
             rc: AtomicUsize::new(0),

@@ -1,6 +1,6 @@
 #![crate_name="devices"]
 #![crate_type="rlib"]
-#![feature(no_std,core,core_prelude)]
+#![feature(no_std,core,core_prelude,const_fn)]
 #![no_std]
 
 #[macro_use] extern crate core;
@@ -143,10 +143,11 @@ impl DeviceManager {
         
         // Insert the device into the devices_class_map and the devices_id_map.
         let rc = Rc::new(device);
-        self.devices_map.lookup_or_insert_mut(&class, || {
+        let res = self.devices_map.lookup_or_insert_mut(&class, || {
             let vec = Vec::new(4).unwrap();
             Box::new(Linked::new(vec)).unwrap()
         }).push(rc.clone());
+        assert!(res.is_ok());
 
         // If we can cast this device to a bus, enumerate it.
         if let Some(bus) = rc.downgrade_bus() {
@@ -157,7 +158,7 @@ impl DeviceManager {
 
 }
 
-static CTX: Global<DeviceManager> = global_init!();
+static CTX: Global<DeviceManager> = Global::new();
 
 pub fn init() {
     // Initialize all drivers. These modules additionally add any modules directly

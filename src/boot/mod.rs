@@ -9,7 +9,7 @@
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
-#[macro_use] extern crate io;
+extern crate io;
 extern crate interrupt;
 extern crate alloc;
 extern crate sched;

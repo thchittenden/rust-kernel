@@ -5,7 +5,7 @@ use core::fmt::{Debug, Formatter};
 use phys;
 use phys::Frame;
 use util::{is_page_aligned, PAGE_SIZE};
-use util::rawbox::{RawBox, Unallocated};
+use util::rawbox::RawBox;
 
 const ENTRY_MASK: usize = 0x3FF;
 const PT_SHIFT: usize = 12;

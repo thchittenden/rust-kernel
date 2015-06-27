@@ -5,24 +5,17 @@ use core::ops::{Deref, DerefMut};
 /// A wrapper type for global variables that dynamically enforces that they are initialized before
 /// their first use and that they are only initialized once.
 pub struct Global<T> {
-    /// The internal element type. This is only made public to allow static global initialization.
-    /// It should not be accessed by user code.
-    pub elem: UnsafeCell<Option<T>>
-}
-
-/// Creates a global variable in the uninitialized state.
-#[macro_export]
-macro_rules! global_init {
-    () => ({ 
-        use core::option::Option::None;
-        use core::cell::UnsafeCell;
-        Global { elem: UnsafeCell { value: None } } 
-    });
+    /// The internal element type.
+    elem: UnsafeCell<Option<T>>
 }
 
 unsafe impl<T> Sync for Global<T> { }
 
 impl<T> Global<T> {
+
+    pub const fn new() -> Global<T> {
+        Global { elem: UnsafeCell::new(None) }
+    }
 
     /// Initializes a global value.
     ///

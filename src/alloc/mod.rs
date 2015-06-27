@@ -20,7 +20,7 @@
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
-#[macro_use] extern crate mutex;
+extern crate mutex;
 
 /// An owned box.
 pub mod boxed;

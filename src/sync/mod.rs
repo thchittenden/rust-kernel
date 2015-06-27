@@ -4,12 +4,12 @@
 #![no_std]
 
 #[macro_use] extern crate core;
-#[macro_use] extern crate collections;
-#[macro_use] extern crate mutex;
-#[macro_use] extern crate task;
+extern crate collections;
+extern crate mutex;
+extern crate task;
 extern crate alloc;
 
-#[macro_use] pub mod condvar;
-#[macro_use] pub mod semaphore;
-#[macro_use] pub mod rwlock;
+pub mod condvar;
+pub mod semaphore;
+pub mod rwlock;
 

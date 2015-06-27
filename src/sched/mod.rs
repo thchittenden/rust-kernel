@@ -4,8 +4,8 @@
 #![no_std]
 
 #[macro_use] extern crate core;
-#[macro_use] extern crate collections;
 #[macro_use] extern crate util;
+extern crate collections;
 extern crate interrupt;
 extern crate alloc;
 extern crate task;
@@ -32,7 +32,7 @@ struct Scheduler {
     runnable: DList<Thread>,
 }
 
-static SCHED: SchedLock<Scheduler> = static_schedlock!(Scheduler {
+static SCHED: SchedLock<Scheduler> = SchedLock::new(Scheduler {
     thread: None,
     runnable: DList::new()
 });

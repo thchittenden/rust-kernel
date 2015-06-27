@@ -9,7 +9,7 @@
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
-#[macro_use] extern crate mutex;
+extern crate mutex;
 extern crate alloc;
 extern crate interrupt;
 
@@ -24,7 +24,7 @@ use keyboard::keyboard_handler;
 use interrupt::{set_isr, KEYBOARD_INT_IRQ};
 
 /// The system-wide COM1 port.
-pub static COM1: Global<SafeSerialPort> = global_init!();
+pub static COM1: Global<SafeSerialPort> = Global::new();
 
 /// Initializes all IO components.
 pub fn init() {

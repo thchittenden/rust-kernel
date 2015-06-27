@@ -1,6 +1,6 @@
 #![crate_name="fs"]
 #![crate_type="rlib"]
-#![feature(no_std,core,core_prelude,core_str_ext)]
+#![feature(no_std,core,core_prelude,core_str_ext,const_fn)]
 #![no_std]
 
 #[macro_use] extern crate core;
@@ -14,7 +14,6 @@ pub mod vfs;
 use alloc::boxed::Box;
 use core::prelude::*;
 use core::str;
-use collections::vec::Vec;
 use util::global::Global;
 use collections::string::String;
 use vfs::VFS;
@@ -74,7 +73,7 @@ impl<'a> IntoIterator for &'a Path {
     }
 }
 
-static ROOT: Global<VFS> = global_init!();
+static ROOT: Global<VFS> = Global::new();
 
 pub fn init() {
     let root = VFS::new().unwrap();

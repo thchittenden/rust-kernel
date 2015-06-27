@@ -8,8 +8,8 @@
 
 #[macro_use] extern crate core;
 #[macro_use] extern crate util;
-#[macro_use] extern crate mutex;
-#[macro_use] extern crate io;
+extern crate mutex;
+extern crate io;
 extern crate alloc;
 
 pub mod phys;
@@ -28,7 +28,7 @@ use util::asm::{enable_paging, enable_global_pages, set_cr3};
 logger_init!(Trace);
 
 // The kernel page directory. This is the default page directory used by new tasks. 
-static KPD: Global<RawBox<PageDirectory>> = global_init!();
+static KPD: Global<RawBox<PageDirectory>> = Global::new();
 
 /// Initializes all memory related submodules. 
 ///

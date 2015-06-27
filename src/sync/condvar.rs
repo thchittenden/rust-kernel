@@ -4,7 +4,6 @@ use core::mem;
 use collections::link::{DoubleLink, HasDoubleLink};
 use collections::dlist::DList;
 use mutex::{Mutex, MutexGuard};
-use task::thread::Thread;
 
 use alloc::boxed::Box; // This should definitely not be here.
 
@@ -67,11 +66,16 @@ impl CondVar {
     }
 
     pub fn signal(&self) {
-        unimplemented!()
+        if let Some(node) = self.list.lock().pop_head() {
+            node.signaled.store(true, Ordering::Relaxed);
+        }
     }
 
     pub fn broadcast(&self) {
-        unimplemented!()
+        let mut lock = self.list.lock();
+        while let Some(node) = lock.pop_head() {
+            node.signaled.store(true, Ordering::Relaxed);
+        }
     }
 
 }

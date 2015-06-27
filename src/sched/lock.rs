@@ -17,22 +17,17 @@ pub struct SchedLockGuard<'a, T: 'a> {
     data: &'a UnsafeCell<T>,
 }
 pub struct SchedLock<T> {
-    pub data: UnsafeCell<T>
-}
-
-#[macro_export]
-macro_rules! static_schedlock {
-    ($data:expr) => ({
-        use $crate::lock::SchedLock;
-        use core::cell::UnsafeCell;
-        SchedLock { 
-            data: UnsafeCell { value: $data }  
-        }
-    });
+    data: UnsafeCell<T>
 }
 
 impl<T> SchedLock<T> {
-    
+   
+    pub const fn new(data: T) -> SchedLock<T> {
+        SchedLock {
+            data: UnsafeCell::new(data)
+        }
+    }
+
     pub fn lock<'a>(&'a self) -> SchedLockGuard<'a, T> {
         let reenable = asm::interrupts_enabled();
         if reenable {

@@ -29,6 +29,7 @@ pub fn test() {
     let y = Box::new(x).unwrap();
     trace!("got {}", y);
     trace!(" or {}", **y);
+    assert!(**y == 3);
     drop(y);
 
     // Test unsized drops.
@@ -37,6 +38,7 @@ pub fn test() {
     test_unsized(b);
 
     let n = Nested { x: Box::new(3).unwrap() };
+    assert!(*n.x == 3);
     drop(n);
 }
 

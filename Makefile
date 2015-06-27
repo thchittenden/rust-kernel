@@ -42,12 +42,13 @@ ASM_OBJS := $(call objectify,$(ASM_SRCS),S,o)
 C_SRCS := $(shell find $(SRCDIR) -name '*.c')
 C_OBJS := $(call objectify,$(C_SRCS),c,o)
 OBJ_FILES := $(ASM_OBJS) $(C_OBJS) $(RUST_OBJS)
+DEP_FILES := $(patsubst %,$(DEPDIR)/%.d,$(CRATES))
 
 all: image
 
 # Include all dependency files.
-DEP_FILES := $(shell [ -d $(DEPDIR) ] && find $(DEPDIR) -name '*.d')
--include $(DEP_FILES)
+CUR_DEP_FILES := $(shell [ -d $(DEPDIR) ] && find $(DEPDIR) -name '*.d')
+-include $(CUR_DEP_FILES)
 
 # Build targets.
 $(BINDIR)/$(TARGET): $(OBJ_FILES)
@@ -60,9 +61,9 @@ $(DEPDIR)/%.d: $(SRCDIR)/%/mod.rs
 	@-$(RUSTC) $(RUSTCFLAGS) --emit dep-info -o $@ $< 2> /dev/null
 	@-./getdeps.py $@ $< $(OBJDIR) $(CRATES) >> $@
 
-$(OBJDIR)/lib%.rlib: $(SRCDIR)/%/mod.rs $(DEPDIR)/%.d
+$(OBJDIR)/lib%.rlib: $(DEPDIR)/%.d
 	@mkdir -p $(@D)
-	$(RUSTC) $(RUSTCFLAGS) -o $@ $< 
+	$(RUSTC) $(RUSTCFLAGS) -o $@ $(SRCDIR)/$(*F)/mod.rs
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(@D)

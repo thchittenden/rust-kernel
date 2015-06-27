@@ -137,7 +137,7 @@ impl<'lock, T> Deref for ReaderGuard<'lock, T> {
 impl<'lock, T, U: 'lock> Deref for ReaderGuardMap<'lock, T, U> {
     type Target = U;
     fn deref<'a>(&'a self) -> &'a U {
-        unsafe { &self.data }
+        &self.data
     }
 }
 
@@ -158,7 +158,7 @@ impl<'lock, T> DerefMut for WriterGuard<'lock, T> {
 // data.
 impl<'lock, T, U: 'lock> DerefMut for ReaderGuardMap<'lock, T, U> {
     fn deref_mut<'a>(&'a mut self) -> &'a mut U {
-        unsafe { &mut self.data }
+        &mut self.data
     }
 }
 

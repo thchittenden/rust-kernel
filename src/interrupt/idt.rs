@@ -50,7 +50,7 @@ struct IDT {
     entries: [IDTEntry; 256]
 }
 
-static mut IDT: Global<RawBox<IDT>> = global_init!();
+static mut IDT: Global<RawBox<IDT>> = Global::new();
 
 /// Initializes an IDT entry. It would be great if we could perform a concat_idents on the name
 /// with _isr_wrapper so we don't have to write it every time but MACROS DON'T WORK ON EXTERN
