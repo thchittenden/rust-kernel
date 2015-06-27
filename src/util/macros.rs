@@ -20,6 +20,17 @@ macro_rules! try_op {
 }
 
 #[macro_export]
+macro_rules! try_or {
+    ($exp:expr, $ret:expr) => ({
+        use core::option::Option::{Some, None};
+        match $exp {
+            None => $ret,
+            Some(val) => val
+        }
+    })
+}
+
+#[macro_export]
 macro_rules! align {
     ($val:expr, $align:expr) => ({
         assert!($crate::is_pow2($align));

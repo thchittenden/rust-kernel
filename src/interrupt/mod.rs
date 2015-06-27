@@ -28,6 +28,7 @@ use timer::init_timer;
 use pic::init_pic;
 use idt::init_idt;
 use util::{asm, KERNEL_CODE_SEGMENT};
+logger_init!(Trace);
 
 // x86 Core Interrupts.
 pub const DIVIDE_ERROR_IRQ: u8          = 0;
@@ -150,6 +151,7 @@ pub fn set_isr(irq: u8, isr: ISR) {
 
 /// Initializes the interrupt module. 
 pub fn init() {
+    debug!("initializing interrupt");
     init_pic();
     init_idt();
     init_timer();

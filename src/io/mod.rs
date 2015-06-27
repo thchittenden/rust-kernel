@@ -22,6 +22,7 @@ use util::global::Global;
 use serial::{SafeSerialPort, LCR_8N1};
 use keyboard::keyboard_handler;
 use interrupt::{set_isr, KEYBOARD_INT_IRQ};
+logger_init!(Trace);
 
 /// The system-wide COM1 port.
 pub static COM1: Global<SafeSerialPort> = Global::new();
@@ -30,6 +31,7 @@ pub static COM1: Global<SafeSerialPort> = Global::new();
 pub fn init() {
     COM1.init(SafeSerialPort::new(0x3f8, 115200, LCR_8N1));
     set_isr(KEYBOARD_INT_IRQ, keyboard_handler);
+    debug!("initialized io");
 }
 
 #[cfg(LOG_DEVICE="console")]

@@ -89,6 +89,15 @@ impl<T: Default> DynArray<T> {
         }
     }
 
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            raw: self.raw,
+            idx: 0,
+            len: self.len,
+            _marker: marker::PhantomData
+        }
+    }
+
 }
 
 impl<T> Drop for DynArray<T> {
@@ -135,16 +144,11 @@ impl<T> IntoIterator for DynArray<T> {
     }
 }   
 
-impl<'a, T> IntoIterator for &'a DynArray<T> {
+impl<'a, T: Default> IntoIterator for &'a DynArray<T> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
     fn into_iter(self) -> Iter<'a, T> {
-        Iter {
-            raw: self.raw,
-            idx: 0,
-            len: self.len,
-            _marker: marker::PhantomData
-        }
+        self.iter()
     }
 }
 

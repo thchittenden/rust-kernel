@@ -36,6 +36,7 @@ use core::mem::min_align_of;
 use core::ptr::Unique;
 use mutex::Mutex;
 use lmm::{LMMAllocator, LMM_ALLOCATOR_INIT};
+logger_init!(Trace);
 
 /// An interface for dealing with Allocator back-ends. Implementors only need implement
 /// `allocate_raw` and `deallocate_raw`.
@@ -100,6 +101,7 @@ static ALLOCATOR: Mutex<LMMAllocator> = Mutex::new(LMM_ALLOCATOR_INIT);
 /// Initializes the allocation library and allocates all memory between `__heap_start` and
 /// `__heap_end` to the allocator.
 pub fn init() {
+    debug!("initializing alloc");
     let heap_start = linker_sym!(__heap_start);
     let heap_end = linker_sym!(__heap_end);
     ALLOCATOR.lock().init(heap_start, heap_end);

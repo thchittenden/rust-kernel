@@ -7,7 +7,8 @@ use collections::dynarray::DynArray;
 use collections::link::{HasDoubleLink, DoubleLink};
 use collections::string::String;
 use sync::rwlock::{ReaderGuardMap, RWLock};
-use super::{Path, File, FileCursor, FileSystem};
+use super::{Node, File, FileSystem};
+use path::Path;
 
 /// A virtual file system.
 pub struct VFS {
@@ -16,19 +17,17 @@ pub struct VFS {
 
 impl VFS {
     pub fn new() -> Option<VFS> {
-        let root = Rc::new(try_op!(Box::new(try_op!(VFSNode::new()))));
+        let node = try_op!(VFSNode::new().and_then(Box::new));
+        let root = Rc::new(node);
         Some(VFS { root: root })
     }
 }
 
 impl FileSystem for VFS {
-    fn create_cursor(&self) -> Option<Box<FileCursor>> {
+    fn root_node(&self) -> Option<Rc<Node>> {
         // We must "try" to unwrap this and rewrap it in order to coerce the upcast from VFSCursor
         // to FileCursor.
-        Some(try_op!(Box::new(VFSCursor {
-            cur_dir: self.root.clone() 
-        })))
-
+        Some(self.root.clone())
     }
 }
 
@@ -40,43 +39,6 @@ impl<'a> Iterator for VFSFileIter<'a> {
     type Item = &'a String;
     fn next(&mut self) -> Option<&'a String> {
         self.lock.next()
-    }
-}
-
-struct VFSCursor {
-    cur_dir: Rc<VFSNode>
-}
-
-impl FileCursor for VFSCursor {
-    fn open(&self, file: String) -> Option<Box<File>> {
-        assert!(self.cur_dir.alive);
-        let entries = self.cur_dir.entries.lock_reader();
-        match entries.lookup(&file) {
-            None => None,
-            Some(&VFSEntry::Node{ .. }) => None,
-            Some(&VFSEntry::File{ ref file, .. }) => {
-                let clone = try_op!(file.clone());  
-                let boxed = try_op!(Box::new(clone));
-                Some(boxed)
-            }
-        }
-        
-    }
-
-    fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a String> + 'a>> {
-        let lock = self.cur_dir.entries.lock_reader();
-        let boxed = try_op!(Box::new(VFSFileIter {
-            lock: lock.map(|map| map.iter_keys())
-        }));
-        Some(boxed)
-    }
-
-    fn mkdir(&self, _: &str) -> Option<Box<FileCursor>> {
-        unimplemented!()
-    }
-
-    fn cd(&mut self, _: Path) -> bool {
-        unimplemented!()
     }
 }
 
@@ -101,6 +63,72 @@ impl HasRc for VFSNode {
     fn get_count(&self) -> &AtomicUsize {
         &self.rc
     }
+}
+
+impl Node for VFSNode {
+    
+    fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a String> + 'a>> {
+        let lock = self.entries.lock_reader();
+        let boxed = try_op!(Box::new(VFSFileIter {
+            lock: lock.map(|map| map.iter_keys())
+        }));
+        Some(boxed)
+    }
+
+    fn open_file(&self, file: String) -> Option<Box<File>> {
+        assert!(self.alive);
+        let entries = self.entries.lock_reader();
+        match entries.lookup(&file) {
+            None => None,
+            Some(&VFSEntry::Node{ .. }) => None,
+            Some(&VFSEntry::File{ ref file, .. }) => {
+                let clone = try_op!(file.clone());  
+                let boxed = try_op!(Box::new(clone));
+                Some(boxed)
+            }
+        }
+        
+    }
+
+    fn open_node(&self, node: String) -> Option<Rc<Node>> {
+        assert!(self.alive);
+        match self.entries.lock_reader().lookup(&node) {
+            None => None,
+            Some(&VFSEntry::File { .. }) => None,
+            Some(&VFSEntry::Node { ref node, .. }) => {
+                Some(node.clone())
+            }
+        }
+    }
+
+    fn make_file(&self, name: String) -> bool {
+        assert!(self.alive);
+        let mut lock = self.entries.lock_writer();
+        if lock.contains(&name) {
+            return false;
+        } else {
+            let file = try_or!(VFSFile::new(), return false);
+            let entry = VFSEntry::File { name: name, file: file, link: DoubleLink::new() };
+            let entry = try_or!(Box::new(entry), return false);
+            lock.insert(entry);
+            return true;
+        }
+    }
+
+    fn make_node(&self, name: String) -> bool {
+        assert!(self.alive);
+        let mut lock = self.entries.lock_writer();
+        if lock.contains(&name) {
+            return false;
+        } else {
+            let node = try_or!(VFSNode::new().and_then(Box::new).map(Rc::new), return false);
+            let entry = VFSEntry::Node { name: name, node: node, link: DoubleLink::new() };
+            let entry = try_or!(Box::new(entry), return false);
+            lock.insert(entry);
+            return true;
+        }
+    }
+
 }
 
 

@@ -10,7 +10,7 @@ use core::cmp::Ordering;
 use core::mem;
 use core::fmt;
 use core::ops::{Deref, DerefMut, CoerceUnsized};
-use core::marker::{Unsize};
+use core::marker::Unsize;
 use core::intrinsics::drop_in_place;
 logger_init!(Trace);
 

@@ -161,6 +161,7 @@ impl DeviceManager {
 static CTX: Global<DeviceManager> = Global::new();
 
 pub fn init() {
+    debug!("initializing devices");
     // Initialize all drivers. These modules additionally add any modules directly
     let mut ctx = DeviceManager::new();
     //pci::init(&mut ctx);

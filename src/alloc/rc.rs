@@ -1,6 +1,7 @@
 use core::prelude::*;
 use core::atomic::{AtomicUsize, Ordering};
-use core::ops::Deref;
+use core::ops::{Deref, CoerceUnsized};
+use core::marker::Unsize;
 use core::fmt;
 use boxed::Box;
 
@@ -14,6 +15,10 @@ pub trait HasRc {
 pub struct Rc<T: ?Sized + HasRc> {
     value: *mut T
 }
+
+
+/// Allow casting from a Box<T> to a Box<U> where T implements U.
+impl<T: ?Sized+Unsize<U>+HasRc, U: ?Sized+HasRc> CoerceUnsized<Rc<U>> for Rc<T> {}
 
 impl<T: ?Sized + HasRc> Rc<T> {
     /// Constructs a new RC type.

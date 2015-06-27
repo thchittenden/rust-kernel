@@ -5,6 +5,7 @@ mod rc;
 mod vec;
 mod map;
 mod string;
+mod vfs;
 logger_init!(Trace);
 
 pub fn test_all() {
@@ -16,6 +17,7 @@ pub fn test_all() {
     vec::test();
     map::test();
     string::test();
+    vfs::test();
 
     trace!("\n==== ENDING TESTS ====");
     let free_end = alloc::get_free_space();

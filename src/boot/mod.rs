@@ -31,16 +31,16 @@ logger_init!(Trace);
 pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     println!(io::console::CON, "Booting kernel...");
     
+    // Initialize IO (serial ports, etc.) This must be performed early as all logging may go
+    // through COM1.
+    io::init();
+    
     // Initialize the interrupt subsystem. Install a no-op handler for breakpoints since apparently
     // they're added to rust code sometimes... See:
     // https://internals.rust-lang.org/t/attention-hackers-filling-drop/1715
     interrupt::init();
     interrupt::set_isr(BREAKPOINT_IRQ, nop);
     timer::set_frequency(19);
-
-    // Initialize IO (serial ports, etc.) This must be performed early as all logging may go
-    // through COM1.
-    io::init();
 
     // Initialize the allocator.
     alloc::init();
@@ -49,7 +49,7 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     mem::init(hdr);
     
     // Create the root file system.
-    //fs::init();
+    fs::init();
 
     // Initialize all devices.
     devices::init();
@@ -59,7 +59,6 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
 
     // Perform some self tests.
     test::test_all();
-
 
     // Do nothing.
     loop { }

@@ -85,15 +85,19 @@ impl<T: HasSingleLink<T> + ?Sized> SList<T> {
         }
         None
     }
+
+    pub fn iter(&self) -> Iter<T> {
+        Iter { 
+            top: self.top.as_ref().map(|top| &**top)
+        }
+    }
 }
 
 impl<'a, T: HasSingleLink<T> + ?Sized> IntoIterator for &'a SList<T> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
     fn into_iter(self) -> Iter<'a, T> {
-        Iter { 
-            top: self.top.as_ref().map(|top| &**top)
-        }
+        self.iter()
     }
 }
 

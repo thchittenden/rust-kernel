@@ -36,6 +36,7 @@ static KPD: Global<RawBox<PageDirectory>> = Global::new();
 /// It then uses 5 frames to direct map the first 16 MB of the address space, which is reserved for
 /// the kernel. Finally, it enables paging.
 pub fn init(hdr: &MultibootHeader) {
+    debug!("initializing mem");
     phys::init();
     virt::init();
     hdr.walk_mmap(add_range_safe);

@@ -118,7 +118,18 @@ impl<K: Hash + Eq, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K, V> {
     }
 
     pub fn iter_keys(&self) -> KeyIter<K, V> {
-        unimplemented!()
+        KeyIter { value_iter: self.iter_values() }
+    }
+
+    pub fn iter_values(&self) -> ValueIter<K, V> {
+        assert!(self.table.len() > 0);
+        let mut table_iter = self.table.iter();
+        let entry_iter = table_iter.next().unwrap().iter();
+        ValueIter {
+            table_iter: table_iter,
+            entry_iter: entry_iter,
+            _marker: marker::PhantomData
+        }
     }
 }
 
