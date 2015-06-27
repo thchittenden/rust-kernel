@@ -6,6 +6,7 @@ mod vec;
 mod map;
 mod string;
 mod vfs;
+mod hashmap;
 logger_init!(Trace);
 
 pub fn test_all() {
@@ -17,6 +18,7 @@ pub fn test_all() {
     vec::test();
     map::test();
     string::test();
+    hashmap::test();
     vfs::test();
 
     trace!("\n==== ENDING TESTS ====");

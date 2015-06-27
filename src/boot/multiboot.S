@@ -2,7 +2,7 @@
 #include "multiboot.h"
 
 #define MULTIBOOT_HEADER_FLAGS (MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO)
-#define STACK_SIZE 0x1000
+#define STACK_SIZE 0x4000
 #define EXCEPTION_STACK_SIZE 0x100
 
 .globl __morestack

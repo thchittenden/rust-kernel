@@ -95,12 +95,6 @@ pub unsafe fn strlen(s: *const u8) -> isize {
     len
 }
 
-#[no_mangle]
-pub unsafe fn __udivdi3() { panic!("no __udivdi3") }
-
-#[no_mangle]
-pub unsafe fn __umoddi3() { panic!("no __umoddi3") }
-
 #[lang = "stack_exhausted"]
 extern fn stack_exhausted() {}
 

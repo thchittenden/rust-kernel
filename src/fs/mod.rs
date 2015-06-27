@@ -24,11 +24,13 @@ logger_init!(Trace);
 
 pub trait Node : HasRc {
     
-    fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a String> + 'a>>;
+    fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a str> + 'a>>;
 
-    fn open_file(&self, file: String) -> Option<Box<File>>;
+    fn count(&self) -> usize;
 
-    fn open_node(&self, node: String) -> Option<Rc<Node>>;
+    fn open_file(&self, file: &str) -> Option<Box<File>>;
+
+    fn open_node(&self, node: &str) -> Option<Rc<Node>>;
 
     fn make_file(&self, file: String) -> bool;
 
@@ -57,12 +59,26 @@ pub struct FileCursor {
 
 impl FileCursor {
     
-    pub fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a String> + 'a>> {
+    pub fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a str> + 'a>> {
+        trace!("listing {:?}", self.curdir);
         self.node.list()
     }
 
     pub fn make_node(&self, node: String) -> bool {
+        trace!("making node {} at {:?}", node, self.curdir);
         self.node.make_node(node)
+    }
+
+    pub fn cd(&mut self, path: Path) -> bool {
+        let mut cur = self.node.clone();
+        for dir in path.dirs() {
+            match cur.open_node(dir) {
+                Some(node) => cur = node,
+                None => return false,
+            }
+        }
+        self.node = cur;
+        true
     }
 
 }

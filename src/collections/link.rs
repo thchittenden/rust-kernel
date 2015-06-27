@@ -7,6 +7,7 @@
 //!
 use alloc::boxed::Box;
 use core::prelude::*;
+use core::fmt;
 use raw::Raw;
 
 pub struct SingleLink<T: ?Sized> {
@@ -33,14 +34,14 @@ impl<T: ?Sized> DoubleLink<T> {
     }
 }
 
-pub trait HasDoubleLink<T: ?Sized> {
-    fn dlink(&self) -> &DoubleLink<T>;
-    fn dlink_mut(&mut self) -> &mut DoubleLink<T>;
-}
-
 pub trait HasSingleLink<T: ?Sized> {
     fn slink(&self) -> &SingleLink<T>;
     fn slink_mut(&mut self) -> &mut SingleLink<T>;
+}
+
+pub trait HasDoubleLink<T: ?Sized> {
+    fn dlink(&self) -> &DoubleLink<T>;
+    fn dlink_mut(&mut self) -> &mut DoubleLink<T>;
 }
 
 impl<T: ?Sized> Default for SingleLink<T> {
@@ -64,4 +65,25 @@ impl<T: HasDoubleLink<T> + ?Sized> HasSingleLink<T> for T {
         &mut self.dlink_mut().next
     }
 }
+
+impl<T> fmt::Debug for SingleLink<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.link.is_none() {
+            write!(f, "EmptyLink")
+        } else {
+            write!(f, "FullLink")
+        }
+    }
+}
+
+impl<T> fmt::Debug for DoubleLink<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.next.link.is_none() && self.prev.is_none() {
+            write!(f, "EmptyLink")
+        } else {
+            write!(f, "FullLink")
+        }
+    }
+}
+
 

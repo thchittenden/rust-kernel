@@ -11,6 +11,7 @@
 use alloc::boxed::Box;
 use core::prelude::*;
 use core::hash::{Hash, Hasher};
+use core::num::Wrapping;
 use core::marker;
 use dynarray::{self, DynArray};
 use link::HasSingleLink;
@@ -22,17 +23,17 @@ const DEFAULT_SIZE: usize = 16;
 const FNV_BASE: u64 = 0xcbf29ce484222325;
 const FNV_PRIME: u64 = 0x100000001b3;
 
-pub trait HasKey<K> {
+pub trait HasKey<K: ?Sized + Hash> {
     fn get_key(&self) -> &K;
 }
 
-pub struct HashMap<K: Hash + Eq, V: HasKey<K> + HasSingleLink<V> + ?Sized> {
+pub struct HashMap<K: Hash + Eq + ?Sized, V: HasKey<K> + HasSingleLink<V> + ?Sized> {
     count: usize,
     table: DynArray<SList<V>>,
     _marker: marker::PhantomData<K>,
 }
 
-impl<K: Hash + Eq, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K, V> {
+impl<K: Hash + Eq + ?Sized, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K, V> {
     
     fn hash(&self, key: &K) -> u64 {
         let mut state = FNVHasher::new();
@@ -46,12 +47,11 @@ impl<K: Hash + Eq, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K, V> {
 
     /// Attempts to construct a new hashmap.
     pub fn new() -> Option<HashMap<K, V>> {
-        DynArray::new(DEFAULT_SIZE).map(|array| {
-            HashMap {
-                count: 0,
-                table: array,
-                _marker: marker::PhantomData
-            }
+        let dyn = try_op!(DynArray::new(DEFAULT_SIZE));
+        Some(HashMap {
+            count: 0,
+            table: dyn,
+            _marker: marker::PhantomData
         })
     }
 
@@ -133,27 +133,33 @@ impl<K: Hash + Eq, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K, V> {
     }
 }
 
-pub struct ValueIter<'a, K: 'a + Eq + Hash, V: 'a + HasKey<K> + HasSingleLink<V> + ?Sized> {
+pub struct ValueIter<'a, K: 'a + Eq + Hash + ?Sized, V: 'a + HasKey<K> + HasSingleLink<V> + ?Sized> {
     table_iter: dynarray::Iter<'a, SList<V>>,
     entry_iter: slist::Iter<'a, V>,
     _marker: marker::PhantomData<&'a K>,
 }
 
-impl<'a, K: Eq + Hash, V: HasKey<K> + HasSingleLink<V>> Iterator for ValueIter<'a, K, V> {
+impl<'a, K: Eq + Hash + ?Sized, V: HasKey<K> + HasSingleLink<V>> Iterator for ValueIter<'a, K, V> {
     type Item = &'a V;
     fn next(&mut self) -> Option<&'a V> {
         self.entry_iter.next().or_else(|| {
-            self.entry_iter = try_op!(self.table_iter.next()).into_iter();
-            self.entry_iter.next()
+            while let Some(next) = self.table_iter.next() {
+                self.entry_iter = next.into_iter();
+                match self.entry_iter.next() {
+                    Some(val) => return Some(val),
+                    None =>  { }
+                }
+            }
+            None
         })
     }
 }
 
-pub struct KeyIter<'a, K: 'a + Eq + Hash, V: 'a + HasKey<K> + HasSingleLink<V> + ?Sized> {
+pub struct KeyIter<'a, K: 'a + Eq + Hash + ?Sized, V: 'a + HasKey<K> + HasSingleLink<V> + ?Sized> {
     value_iter: ValueIter<'a, K, V>
 }
 
-impl<'a, K: Eq + Hash, V: HasKey<K> + HasSingleLink<V>> Iterator for KeyIter<'a, K, V> {
+impl<'a, K: Eq + Hash + ?Sized, V: HasKey<K> + HasSingleLink<V>> Iterator for KeyIter<'a, K, V> {
     type Item = &'a K;
     fn next(&mut self) -> Option<&'a K> {
         self.value_iter.next().map(|v| v.get_key())
@@ -162,24 +168,24 @@ impl<'a, K: Eq + Hash, V: HasKey<K> + HasSingleLink<V>> Iterator for KeyIter<'a,
 
 
 pub struct FNVHasher {
-    accum: u64
+    accum: Wrapping<u64>
 }
 
 impl FNVHasher {
     pub fn new () -> FNVHasher {
-        FNVHasher { accum: FNV_BASE }
+        FNVHasher { accum: Wrapping(FNV_BASE) }
     }
 }
 
 impl Hasher for FNVHasher {
     fn finish(&self) -> u64 {
-        self.accum
+        self.accum.0
     }
 
     fn write(&mut self, bytes: &[u8]) {
         for byte in bytes {
-            self.accum *= FNV_PRIME;
-            self.accum ^= *byte as u64;
+            self.accum = self.accum * Wrapping(FNV_PRIME);
+            self.accum = self.accum ^ Wrapping(*byte as u64);
         }
     }
 }

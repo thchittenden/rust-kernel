@@ -9,6 +9,7 @@ use collections::string::String;
 use sync::rwlock::{ReaderGuardMap, RWLock};
 use super::{Node, File, FileSystem};
 use path::Path;
+logger_init!(Trace);
 
 /// A virtual file system.
 pub struct VFS {
@@ -32,12 +33,12 @@ impl FileSystem for VFS {
 }
 
 struct VFSFileIter<'a> {
-    lock: ReaderGuardMap<'a, HashMap<String, VFSEntry>, KeyIter<'a, String, VFSEntry>>,
+    lock: ReaderGuardMap<'a, HashMap<str, VFSEntry>, KeyIter<'a, str, VFSEntry>>,
 }
 
 impl<'a> Iterator for VFSFileIter<'a> {
-    type Item = &'a String;
-    fn next(&mut self) -> Option<&'a String> {
+    type Item = &'a str;
+    fn next(&mut self) -> Option<&'a str> {
         self.lock.next()
     }
 }
@@ -45,7 +46,7 @@ impl<'a> Iterator for VFSFileIter<'a> {
 struct VFSNode {
     rc: AtomicUsize,
     alive: bool,
-    entries: RWLock<HashMap<String, VFSEntry>>
+    entries: RWLock<HashMap<str, VFSEntry>>
 }
 
 impl VFSNode {
@@ -67,7 +68,7 @@ impl HasRc for VFSNode {
 
 impl Node for VFSNode {
     
-    fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a String> + 'a>> {
+    fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a str> + 'a>> {
         let lock = self.entries.lock_reader();
         let boxed = try_op!(Box::new(VFSFileIter {
             lock: lock.map(|map| map.iter_keys())
@@ -75,10 +76,16 @@ impl Node for VFSNode {
         Some(boxed)
     }
 
-    fn open_file(&self, file: String) -> Option<Box<File>> {
+    fn count(&self) -> usize {
+        assert!(self.alive);
+        self.entries.lock_reader().count()
+    }
+
+    fn open_file(&self, file: &str) -> Option<Box<File>> {
+        trace!("opening file {}", file);
         assert!(self.alive);
         let entries = self.entries.lock_reader();
-        match entries.lookup(&file) {
+        match entries.lookup(file) {
             None => None,
             Some(&VFSEntry::Node{ .. }) => None,
             Some(&VFSEntry::File{ ref file, .. }) => {
@@ -90,9 +97,10 @@ impl Node for VFSNode {
         
     }
 
-    fn open_node(&self, node: String) -> Option<Rc<Node>> {
+    fn open_node(&self, node: &str) -> Option<Rc<Node>> {
+        trace!("opening node {}", node);
         assert!(self.alive);
-        match self.entries.lock_reader().lookup(&node) {
+        match self.entries.lock_reader().lookup(node) {
             None => None,
             Some(&VFSEntry::File { .. }) => None,
             Some(&VFSEntry::Node { ref node, .. }) => {
@@ -102,9 +110,10 @@ impl Node for VFSNode {
     }
 
     fn make_file(&self, name: String) -> bool {
+        trace!("making file {}", name);
         assert!(self.alive);
         let mut lock = self.entries.lock_writer();
-        if lock.contains(&name) {
+        if lock.contains(name.as_str()) {
             return false;
         } else {
             let file = try_or!(VFSFile::new(), return false);
@@ -116,15 +125,17 @@ impl Node for VFSNode {
     }
 
     fn make_node(&self, name: String) -> bool {
+        trace!("making node {}", name);
         assert!(self.alive);
         let mut lock = self.entries.lock_writer();
-        if lock.contains(&name) {
+        if lock.contains(name.as_str()) {
+            trace!("failed, {} already exists", name);
             return false;
         } else {
             let node = try_or!(VFSNode::new().and_then(Box::new).map(Rc::new), return false);
             let entry = VFSEntry::Node { name: name, node: node, link: DoubleLink::new() };
             let entry = try_or!(Box::new(entry), return false);
-            lock.insert(entry);
+            assert!(lock.insert(entry).is_none());
             return true;
         }
     }
@@ -137,11 +148,11 @@ enum VFSEntry {
     File { name: String, file: VFSFile, link: DoubleLink<VFSEntry> },
 }
 
-impl HasKey<String> for VFSEntry {
-    fn get_key(&self) -> &String {
+impl HasKey<str> for VFSEntry {
+    fn get_key(&self) -> &str {
         match self {
-            &VFSEntry::Node { ref name, .. } => name,
-            &VFSEntry::File { ref name, .. } => name,
+            &VFSEntry::Node { ref name, .. } => name.as_str(),
+            &VFSEntry::File { ref name, .. } => name.as_str(),
         }
     }
 }

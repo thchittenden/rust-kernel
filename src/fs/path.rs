@@ -4,6 +4,7 @@ use collections::string::String;
 
 pub const PATH_SEP: &'static str = "/";
 
+#[derive(Debug)]
 pub struct Path {
     path: String
 }
@@ -18,13 +19,9 @@ impl Path {
         self.path.as_str().starts_with(PATH_SEP)
     }
 
-}
-
-impl<'a> IntoIterator for &'a Path {
-    type Item = &'a str;
-    type IntoIter = str::Split<'a, &'static str>;
-    fn into_iter(self) -> Self::IntoIter {
+    pub fn dirs(&self) -> str::Split<&'static str> {
         self.path.as_str().split(PATH_SEP)
     }
+
 }
 
