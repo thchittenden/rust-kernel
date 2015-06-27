@@ -12,6 +12,7 @@ use core::fmt;
 use core::ops::{Deref, DerefMut, CoerceUnsized};
 use core::marker::Unsize;
 use core::intrinsics::drop_in_place;
+use util::KernResult;
 logger_init!(Trace);
 
 /// A pointer type for heap allocations.
@@ -24,13 +25,13 @@ impl<T> Box<T> {
     }
 
     /// Allocates memory on the heap and then moves `x` into it.
-    pub fn new(x: T) -> Option<Box<T>> {
+    pub fn new(x: T) -> KernResult<Box<T>> {
         ::allocate(x).map(Self::make_box)
     }
 
     /// Allocates memory and calls the initialization function on it. This helps avoid copying
     /// large data structures on the stack. This is especially important when allocating stacks!
-    pub fn emplace<F>(init: F) -> Option<Box<T>> where F: Fn(&mut T) {
+    pub fn emplace<F>(init: F) -> KernResult<Box<T>> where F: Fn(&mut T) {
         ::allocate_emplace(init).map(Self::make_box)
     }
 

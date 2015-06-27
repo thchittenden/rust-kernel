@@ -15,32 +15,32 @@ pub mod vfs;
 use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc};
 use core::prelude::*;
-use core::str;
 use util::global::Global;
 use collections::string::String;
 use vfs::VFS;
 use path::Path;
+use util::KernResult;
 logger_init!(Trace);
 
 pub trait Node : HasRc {
     
-    fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a str> + 'a>>;
-
     fn count(&self) -> usize;
 
-    fn open_file(&self, file: &str) -> Option<Box<File>>;
+    fn list<'a>(&'a self) -> KernResult<Box<Iterator<Item=&'a str> + 'a>>;
 
-    fn open_node(&self, node: &str) -> Option<Rc<Node>>;
+    fn open_file(&self, file: &str) -> KernResult<Box<File>>;
 
-    fn make_file(&self, file: String) -> bool;
+    fn open_node(&self, node: &str) -> KernResult<Rc<Node>>;
 
-    fn make_node(&self, node: String) -> bool; 
+    fn make_file(&self, file: String) -> KernResult<()>;
+
+    fn make_node(&self, node: String) -> KernResult<()>; 
 
 }
 
 pub trait FileSystem {
     
-    fn root_node(&self) -> Option<Rc<Node>>;
+    fn root_node(&self) -> KernResult<Rc<Node>>;
 
 }
 
@@ -59,34 +59,25 @@ pub struct FileCursor {
 
 impl FileCursor {
     
-    pub fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a str> + 'a>> {
+    pub fn list<'a>(&'a self) -> KernResult<Box<Iterator<Item=&'a str> + 'a>> {
         trace!("listing {}", self.curdir);
         self.node.list()
     }
 
-    pub fn make_node(&self, node: String) -> bool {
+    pub fn make_node(&self, node: String) -> KernResult<()> {
         trace!("making node {} at {}", node, self.curdir);
         self.node.make_node(node)
     }
 
-    pub fn cd(&mut self, path: Path) -> bool {
+    pub fn cd(&mut self, path: Path) -> KernResult<()> {
         trace!("trying to cd from {} to {}/{}", self.curdir, self.curdir, path);
         let mut cur = self.node.clone();
         for dir in path.dirs() {
-            match cur.open_node(dir) {
-                Some(node) => cur = node,
-                None => {
-                    trace!("directory {} does not exist", dir);
-                    return false; 
-                }
-            }
+            cur = try!(cur.open_node(dir));
         }
-        if (self.curdir.append(path)) {
-            self.node = cur;
-            true
-        } else {
-            false
-        }
+        try!(self.curdir.append(path));
+        self.node = cur;
+        Ok(())
     }
 
     pub fn get_cd(&self) -> &Path {
@@ -112,6 +103,6 @@ pub fn init() {
 
     // Populate a few initial directories.
     let cursor = root_cursor();
-    cursor.make_node(String::from_str("dev"));
+    cursor.make_node(String::from_str("dev")).unwrap();
 }
 

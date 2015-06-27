@@ -16,7 +16,7 @@ use core::prelude::*;
 use core::atomic::{AtomicIsize, ATOMIC_ISIZE_INIT, Ordering};
 use core::mem;
 use collections::link::{DoubleLink, HasDoubleLink};
-use util::asm;
+use util::{KernResult, asm};
 logger_init!(Trace);
 
 const STACK_SIZE: usize = 1017;
@@ -50,7 +50,7 @@ pub struct Thread {
 
 impl Thread {
 
-    pub fn new(f: fn() -> !) -> Option<Box<Thread>> {
+    pub fn new(f: fn() -> !) -> KernResult<Box<Thread>> {
         Box::emplace(|thread: &mut Thread| {
             thread.tid = NEXT_TID.fetch_add(1, Ordering::Relaxed) as i32;
             thread.pid = 0;

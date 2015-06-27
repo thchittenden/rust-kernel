@@ -18,6 +18,7 @@ use collections::linked::Linked;
 use collections::hashmap::{HasKey, HashMap};
 use collections::vec::Vec;
 use util::global::Global;
+use util::KernResult;
 logger_init!(Trace);
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -96,11 +97,11 @@ pub struct DeviceManager {
 
 impl DeviceManager {
     
-    pub fn new() -> DeviceManager {
-        DeviceManager {
-            drivers_map: HashMap::new().unwrap(),
-            devices_map: HashMap::new().unwrap(),
-        }
+    pub fn new() -> KernResult<DeviceManager> {
+        Ok(DeviceManager {
+            drivers_map: try!(HashMap::new()),
+            devices_map: try!(HashMap::new()),
+        })
     }
     
     // Registers a driver for future use by the system.
@@ -163,7 +164,7 @@ static CTX: Global<DeviceManager> = Global::new();
 pub fn init() {
     debug!("initializing devices");
     // Initialize all drivers. These modules additionally add any modules directly
-    let mut ctx = DeviceManager::new();
+    let mut ctx = DeviceManager::new().unwrap();
     //pci::init(&mut ctx);
     
     // Initialize the global context.

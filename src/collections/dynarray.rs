@@ -8,6 +8,7 @@ use core::{mem, ptr, marker};
 use core::ops::{Index, IndexMut};
 use core::intrinsics::drop_in_place;
 use alloc::{allocate_raw, reallocate_raw, deallocate_raw};
+use util::KernResult;
 
 /// A dynamicly resizable array. 
 pub struct DynArray<T> {
@@ -18,25 +19,24 @@ pub struct DynArray<T> {
 impl<T: Default> DynArray<T> {
    
     /// Creates a new Dynamic Array of the given size.
-    pub fn new(count: usize) -> Option<DynArray<T>> {
+    pub fn new(count: usize) -> KernResult<DynArray<T>> {
         let size = count * mem::size_of::<T>();
         let align = mem::min_align_of::<T>();
-        allocate_raw(size, align).map(|addr| {
-            let dyn = DynArray {
-                raw: addr as *mut T,
-                len: count
-            };
-            for i in 0 .. count {
-                unsafe { ptr::write(dyn.raw.offset(i as isize), T::default()) };
-            }
-            dyn
-        })
+        let addr = try!(allocate_raw(size, align));
+        let dyn = DynArray {
+            raw: addr as *mut T,
+            len: count
+        };
+        for i in 0..count {
+            unsafe { ptr::write(dyn.raw.offset(i as isize), T::default()) };
+        }
+        Ok(dyn)
     }
 
-    pub fn clone(&self) -> Option<DynArray<T>> where T: Clone {
+    pub fn clone(&self) -> KernResult<DynArray<T>> where T: Clone {
         let size = self.len * mem::size_of::<T>();
         let align = mem::min_align_of::<T>();
-        let addr = try_op!(allocate_raw(size, align));
+        let addr = try!(allocate_raw(size, align));
         let mut dyn = DynArray {
             raw: addr as *mut T,
             len: self.len,
@@ -44,28 +44,24 @@ impl<T: Default> DynArray<T> {
         for i in 0..self.len {
             dyn[i] = self[i].clone();
         }
-        Some(dyn)
+        Ok(dyn)
     }
 
     /// Attempts to change the size of the array and returns whether it was successful or not.
     #[must_use]
-    pub fn resize(&mut self, new_count: usize) -> bool {
+    pub fn resize(&mut self, new_count: usize) -> KernResult<()> {
         let old_addr = self.raw as usize;
         let old_count = self.len;
         let old_size = old_count * mem::size_of::<T>();
         let new_size = new_count * mem::size_of::<T>();
         let align = mem::min_align_of::<T>();
-        match reallocate_raw(old_addr, old_size, new_size, align) {
-            Ok(new_addr) => {
-                self.raw = new_addr as *mut T;
-                self.len = new_count;
-                for i in old_count .. new_count {
-                    unsafe { ptr::write(self.raw.offset(i as isize), T::default()) };
-                }
-                true
-            }
-            Err(_) => false
+        let new_addr = try!(reallocate_raw(old_addr, old_size, new_size, align));
+        self.raw = new_addr as *mut T;
+        self.len = new_count;
+        for i in old_count .. new_count {
+            unsafe { ptr::write(self.raw.offset(i as isize), T::default()) };
         }
+        Ok(())
     }
 
     /// Returns the length of the array.

@@ -9,6 +9,8 @@ use core::prelude::*;
 use core::intrinsics::volatile_copy_memory;
 use util::align_bits;
 use Allocator;
+use util::KernResult;
+use util::KernError::*;
 logger_init!(Trace);
 
 const ALLOC_FLAGS: u32 = 0;
@@ -92,14 +94,14 @@ static EMPTY: () = ();
 
 impl Allocator for LMMAllocator {
 
-    fn allocate_raw(&mut self, size: usize, align: usize) -> Option<usize> {
+    fn allocate_raw(&mut self, size: usize, align: usize) -> KernResult<usize> {
         trace!("trying to allocate {} bytes aligned to {:x}", size, align);
        
         if size == 0 {
             // If the allocation is 0 bytes, LMM can't handle it so we just give it a dummy
             // address.
             trace!("allocated 0 bytes at {:p}", &EMPTY);
-            return Some(&EMPTY as *const () as usize);
+            Ok(&EMPTY as *const () as usize)
         } else {
             // Otherwise we go to LMM for the allocation.
             self.free -= size;
@@ -108,28 +110,26 @@ impl Allocator for LMMAllocator {
             match unsafe { lmm_alloc_aligned(&mut self.lmm, size, ALLOC_FLAGS, align_bits, align_ofs) } {
                 0 => {
                     trace!("could not allocate {} bytes", size);
-                    None
+                    Err(OutOfMemory)
                 }
                 x => {
                     trace!("allocated {} bytes at 0x{:x}", size, x);
-                    Some(x)
+                    Ok(x)
                 }
             }
         }
     }
 
-    fn reallocate_raw(&mut self, old_addr: usize, old_size: usize, new_size: usize, align: usize) -> Result<usize, usize> {
+    fn reallocate_raw(&mut self, old_addr: usize, old_size: usize, new_size: usize, align: usize) -> KernResult<usize> {
         // LMM does not actually contain a realloc function so we are limited to just trying a new
         // allocation, copying bytes, and freeing the old one.
         trace!("trying to reallocate {} bytes at 0x{:x} to {} bytes", old_size, old_addr, new_size);
-        self.allocate_raw(new_size, align).map(|new_addr| {
-            // The allocation succeeded, copy bytes and free the old one.
-            let src = old_addr as *mut u8;
-            let dst = new_addr as *mut u8;
-            unsafe { volatile_copy_memory(dst, src, old_size) };
-            self.deallocate_raw(old_addr, old_size);
-            new_addr
-        }).ok_or(old_addr)
+        let new_addr = try!(self.allocate_raw(new_size, align));
+        let src = old_addr as *mut u8;
+        let dst = new_addr as *mut u8;
+        unsafe { volatile_copy_memory(dst, src, old_size) };
+        self.deallocate_raw(old_addr, old_size);
+        Ok(new_addr)
     }
 
     fn deallocate_raw(&mut self, addr: usize, size: usize) {

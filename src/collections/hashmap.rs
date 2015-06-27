@@ -16,24 +16,27 @@ use core::marker;
 use dynarray::{self, DynArray};
 use link::HasSingleLink;
 use slist::{self, SList};
+use util::KernResult;
 
 /// We assume the hash function is uniformly distributed in the lowest bits so that this doesn't
 /// result in horrible collisions. Otherwise this should be prime!
 const DEFAULT_SIZE: usize = 16;
-const FNV_BASE: u64 = 0xcbf29ce484222325;
-const FNV_PRIME: u64 = 0x100000001b3;
 
-pub trait HasKey<K: ?Sized + Hash> {
+pub trait HasKey<K: ?Sized> where K: Eq + Hash {
     fn get_key(&self) -> &K;
 }
 
-pub struct HashMap<K: Hash + Eq + ?Sized, V: HasKey<K> + HasSingleLink<V> + ?Sized> {
+pub struct HashMap<K: ?Sized, V: ?Sized> 
+where K: Eq + Hash,
+      V: HasKey<K> + HasSingleLink<V> {
     count: usize,
     table: DynArray<SList<V>>,
     _marker: marker::PhantomData<K>,
 }
 
-impl<K: Hash + Eq + ?Sized, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K, V> {
+impl<K: ?Sized, V: ?Sized> HashMap<K, V>
+where K: Eq + Hash,
+      V: HasKey<K> + HasSingleLink<V> {
     
     fn hash(&self, key: &K) -> u64 {
         let mut state = FNVHasher::new();
@@ -46,9 +49,9 @@ impl<K: Hash + Eq + ?Sized, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K,
     }
 
     /// Attempts to construct a new hashmap.
-    pub fn new() -> Option<HashMap<K, V>> {
-        let dyn = try_op!(DynArray::new(DEFAULT_SIZE));
-        Some(HashMap {
+    pub fn new() -> KernResult<HashMap<K, V>> {
+        let dyn = try!(DynArray::new(DEFAULT_SIZE));
+        Ok(HashMap {
             count: 0,
             table: dyn,
             _marker: marker::PhantomData
@@ -133,13 +136,17 @@ impl<K: Hash + Eq + ?Sized, V: HasKey<K> + HasSingleLink<V> + ?Sized> HashMap<K,
     }
 }
 
-pub struct ValueIter<'a, K: 'a + Eq + Hash + ?Sized, V: 'a + HasKey<K> + HasSingleLink<V> + ?Sized> {
+pub struct ValueIter<'a, K: ?Sized, V: ?Sized> 
+where K: Eq + Hash + 'a, 
+      V: HasKey<K> + HasSingleLink<V> + 'a {
     table_iter: dynarray::Iter<'a, SList<V>>,
     entry_iter: slist::Iter<'a, V>,
     _marker: marker::PhantomData<&'a K>,
 }
 
-impl<'a, K: Eq + Hash + ?Sized, V: HasKey<K> + HasSingleLink<V>> Iterator for ValueIter<'a, K, V> {
+impl<'a, K: ?Sized, V: ?Sized> Iterator for ValueIter<'a, K, V> 
+where K: Eq + Hash + 'a,
+      V: HasKey<K> + HasSingleLink<V> + 'a {
     type Item = &'a V;
     fn next(&mut self) -> Option<&'a V> {
         self.entry_iter.next().or_else(|| {
@@ -155,19 +162,26 @@ impl<'a, K: Eq + Hash + ?Sized, V: HasKey<K> + HasSingleLink<V>> Iterator for Va
     }
 }
 
-pub struct KeyIter<'a, K: 'a + Eq + Hash + ?Sized, V: 'a + HasKey<K> + HasSingleLink<V> + ?Sized> {
+pub struct KeyIter<'a, K: ?Sized, V: ?Sized> 
+where K: Eq + Hash + 'a,
+      V: HasKey<K> + HasSingleLink<V> + 'a {
     value_iter: ValueIter<'a, K, V>
 }
 
-impl<'a, K: Eq + Hash + ?Sized, V: HasKey<K> + HasSingleLink<V>> Iterator for KeyIter<'a, K, V> {
+impl<'a, K: ?Sized, V: ?Sized> Iterator for KeyIter<'a, K, V>
+where K: Eq + Hash + 'a,
+      V: HasKey<K> + HasSingleLink<V> + 'a {
     type Item = &'a K;
     fn next(&mut self) -> Option<&'a K> {
         self.value_iter.next().map(|v| v.get_key())
     }
 }
 
+/// See https://en.wikipedia.org/wiki/Fowler-Noll-Vo_hash_function
+const FNV_BASE: u64 = 0xcbf29ce484222325;
+const FNV_PRIME: u64 = 0x100000001b3;
 
-pub struct FNVHasher {
+struct FNVHasher {
     accum: Wrapping<u64>
 }
 

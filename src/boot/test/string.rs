@@ -7,17 +7,17 @@ pub fn test() {
     let mut x = String::new();
     trace!("empty string: {}", x);
 
-    x.append("blah");
+    assert!(x.append("blah").is_ok());
     trace!("string1: {}", x);
     
-    x.append(" blah");
+    assert!(x.append(" blah").is_ok());
     trace!("string2: {}", x);
 
-    x.append(" blah final");
+    assert!(x.append(" blah final").is_ok());
     trace!("string3: {}", x);
 
     let mut y = String::from_str("prefix: ");
 
-    y.append(x.as_str());
+    assert!(y.append(x.as_str()).is_ok());
     trace!("string4: {}", y);
 }

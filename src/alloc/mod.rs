@@ -36,6 +36,7 @@ use core::mem::min_align_of;
 use core::ptr::Unique;
 use mutex::Mutex;
 use lmm::{LMMAllocator, LMM_ALLOCATOR_INIT};
+use util::KernResult;
 logger_init!(Trace);
 
 /// An interface for dealing with Allocator back-ends. Implementors only need implement
@@ -47,11 +48,11 @@ trait Allocator {
 
     /// Tries to allocate `size` bytes aligned to `align` on the heap. Returns the address of the
     /// allocation if successful and `None` otherwise.
-    fn allocate_raw(&mut self, size: usize, align: usize) -> Option<usize>;
+    fn allocate_raw(&mut self, size: usize, align: usize) -> KernResult<usize>;
 
-    /// Tries to reallocate the allocation at `addr` so that it can allocate `size` bytes. If more
-    /// appropriate slot cannot be found, returns the original allocation.
-    fn reallocate_raw(&mut self, old_addr: usize, old_size: usize, new_size: usize, align: usize) -> Result<usize, usize>;
+    /// Tries to reallocate the allocation at `addr` so that it can allocate `size` bytes. Returns
+    /// the new address if succesful.
+    fn reallocate_raw(&mut self, old_addr: usize, old_size: usize, new_size: usize, align: usize) -> KernResult<usize>;
 
     /// Frees `size` bytes of allocated memory located at `addr`. 
     fn deallocate_raw(&mut self, addr: usize, size: usize);
@@ -61,29 +62,25 @@ trait Allocator {
 
     /// Tries to allocate an object aligned to `align`. Returns a unique pointer to the object if
     /// successful and `None` otherwise.
-    fn allocate_aligned<T>(&mut self, elem: T, align: usize) -> Option<Unique<T>> {
-        let alloc = self.allocate_raw(mem::size_of::<T>(), align);
-        alloc.map(|addr| {
-            let uniq = unsafe { Unique::new(addr as *mut T) };
-            unsafe { **uniq = elem }
-            uniq
-        })
+    fn allocate_aligned<T>(&mut self, elem: T, align: usize) -> KernResult<Unique<T>> {
+        let addr = try!(self.allocate_raw(mem::size_of::<T>(), align));
+        let uniq = unsafe { Unique::new(addr as *mut T) };
+        unsafe { **uniq = elem };
+        Ok(uniq)
     }
   
     /// Tries to allocate an object from a constructor. Returns a unique pointer to the object if
     /// successful and `None` otherwise.
-    fn allocate_emplace<F, T>(&mut self, init: F) -> Option<Unique<T>> where F: Fn(&mut T) {
-        let alloc = self.allocate_raw(mem::size_of::<T>(), min_align_of::<T>());
-        alloc.map(|addr| {
-            let uniq = unsafe { Unique::new(addr as *mut T) };
-            init(unsafe { &mut**uniq  });
-            uniq
-        })
+    fn allocate_emplace<F, T>(&mut self, init: F) -> KernResult<Unique<T>> where F: Fn(&mut T) {
+        let addr = try!(self.allocate_raw(mem::size_of::<T>(), min_align_of::<T>()));
+        let uniq = unsafe { Unique::new(addr as *mut T) };
+        init(unsafe { &mut**uniq  });
+        Ok(uniq)
     }
    
     /// Tries to allocate an object at its default alignment. Returns a unique pointer to the
     /// object if successful and `None` otherwise.
-    fn allocate<T>(&mut self, elem: T) -> Option<Unique<T>> {
+    fn allocate<T>(&mut self, elem: T) -> KernResult<Unique<T>> {
         self.allocate_aligned(elem, min_align_of::<T>())
     }
 
@@ -112,13 +109,13 @@ pub fn init() {
 /// # Failures
 ///
 /// Fails if the heap cannot find a slot big enough to accomodate the requested object.
-pub extern fn allocate_raw(size: usize, align: usize) -> Option<usize> {
+pub extern fn allocate_raw(size: usize, align: usize) -> KernResult<usize> {
     ALLOCATOR.lock().allocate_raw(size, align)
 }
 
 /// Tries to reallocate a space on the heap to accomodate a new size. Returns Ok(addr) if succesful
 /// or Err(old_addr) if unsuccesful.
-pub extern fn reallocate_raw(old_addr: usize, old_size: usize, new_size: usize, align: usize) -> Result<usize, usize> {
+pub extern fn reallocate_raw(old_addr: usize, old_size: usize, new_size: usize, align: usize) -> KernResult<usize> {
     ALLOCATOR.lock().reallocate_raw(old_addr, old_size, new_size, align)
 }   
 
@@ -132,7 +129,7 @@ pub extern fn deallocate_raw(addr: usize, size: usize) {
 /// # Failures
 ///
 /// Fails if the heap cannot find a slot big enough to accomodate the requested object.
-pub extern fn allocate<T>(elem: T) -> Option<Unique<T>> {
+pub extern fn allocate<T>(elem: T) -> KernResult<Unique<T>> {
     ALLOCATOR.lock().allocate(elem)
 }
 
@@ -142,7 +139,7 @@ pub extern fn allocate<T>(elem: T) -> Option<Unique<T>> {
 /// # Failures
 ///
 /// Fails if the heap cannot find a slot big enough to accomodate the requested object.
-pub extern fn allocate_emplace<F, T>(init: F) -> Option<Unique<T>> where F: Fn(&mut T) {
+pub extern fn allocate_emplace<F, T>(init: F) -> KernResult<Unique<T>> where F: Fn(&mut T) {
     ALLOCATOR.lock().allocate_emplace(init)
 }
 

@@ -2,6 +2,7 @@ use core::prelude::*;
 use core::str;
 use core::fmt;
 use collections::string::String;
+use util::KernResult;
 
 pub const PATH_SEP: &'static str = "/";
 
@@ -24,18 +25,20 @@ impl Path {
         self.path.as_str() == "/"
     }
 
-    pub fn append(&mut self, other: Path) -> bool {
+    pub fn append(&mut self, other: Path) -> KernResult<()> {
         if other.is_absolute() {
             self.path = other.path;
-            true
         } else {
             if self.is_root() {
-                self.path.append(other.path.as_str())
+                try!(self.path.append(other.path.as_str()));
             } else {
                 // ONLY the root directory has a trailing '/' so add one otherwise..
-                self.path.append(PATH_SEP) && self.path.append(other.path.as_str())
+                // TODO transactional.
+                try!(self.path.append(PATH_SEP));
+                try!(self.path.append(other.path.as_str()));
             }
         }
+        Ok(())
     }
 
     pub fn dirs(&self) -> str::Split<&'static str> {

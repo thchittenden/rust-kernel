@@ -8,23 +8,34 @@ macro_rules! linker_sym {
     });
 }
 
+/// The libstd try! macro instead of the gimped libcore version.
+#[macro_export]
+macro_rules! try {
+    ($exp:expr) => ({
+        use core::result::Result::{Ok, Err};
+        use core::convert::From;
+        match $exp {
+            Ok(v) => v,
+            Err(e) => return Err(From::from(e))
+        }
+    }); 
+    ($exp:expr, $ex:expr) => ({
+        use core::result::Result::{Ok, Err};
+        use core::convert::From;
+        use $crate::KernErrorEx;
+        match $exp {
+            Ok(v) => v,
+            Err(e) => return Err(KernErrorEx { err: From::from(e), ex: $ex })
+        }
+    });
+}
+
 #[macro_export]
 macro_rules! try_op {
     ($exp:expr) => ({
         use core::option::Option::{Some, None};
         match $exp {
             None => return None,
-            Some(val) => val
-        }
-    })
-}
-
-#[macro_export]
-macro_rules! try_or {
-    ($exp:expr, $ret:expr) => ({
-        use core::option::Option::{Some, None};
-        match $exp {
-            None => $ret,
             Some(val) => val
         }
     })

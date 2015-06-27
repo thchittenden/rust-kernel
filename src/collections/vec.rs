@@ -7,6 +7,7 @@ use core::{ptr, mem, marker};
 use core::slice;
 use core::cmp::max;
 use alloc::{allocate_raw, deallocate_raw, reallocate_raw};
+use util::{KernResult, KernResultEx};
 
 /// A growable vector.
 pub struct Vec<T> {
@@ -18,23 +19,22 @@ pub struct Vec<T> {
 impl<T> Vec<T> {
     
     /// Creates a new vector with the given capacity.
-    pub fn new(capacity: usize) -> Option<Vec<T>> {
+    pub fn new(capacity: usize) -> KernResult<Vec<T>> {
         let size = capacity * mem::size_of::<T>();
         let align = mem::min_align_of::<T>();
-        let alloc = allocate_raw(size, align);
-        alloc.map(|addr| {
-            Vec {
-                raw: addr as *mut T,
-                cap: capacity,
-                len: 0
-            }
+        let addr = try!(allocate_raw(size, align));
+        Ok(Vec {
+            raw: addr as *mut T,
+            cap: capacity,
+            len: 0
         })
     }
 
-    pub fn clone(&self) -> Option<Vec<T>> where T: Clone {
+    /// Clones a vector.
+    pub fn clone(&self) -> KernResult<Vec<T>> where T: Clone {
         let size = self.len * mem::size_of::<T>();
         let align = mem::min_align_of::<T>();
-        let addr = try_op!(allocate_raw(size, align));
+        let addr = try!(allocate_raw(size, align));
         let mut vec = Vec {
             raw: addr as *mut T,
             cap: self.len,
@@ -43,7 +43,7 @@ impl<T> Vec<T> {
         for i in 0..self.len {
             vec[i] = self[i].clone();
         }
-        Some(vec)
+        Ok(vec)
     }
 
     /// Returns the current number of elements in the vector.
@@ -54,7 +54,7 @@ impl<T> Vec<T> {
     /// Attempts to push an element onto the queue. If the vector cannot allocate enough space to
     /// grow it returns Err(val), otherwise it returns Ok(())
     #[must_use]
-    pub fn push(&mut self, val: T) -> Result<(), T> {
+    pub fn push(&mut self, val: T) -> KernResultEx<(), T> {
         if self.len < self.cap {
             // Have enough space, just perform the write.
             unsafe { ptr::write(self.raw.offset(self.len as isize), val) };
@@ -68,16 +68,12 @@ impl<T> Vec<T> {
             let old_size = old_cap * mem::size_of::<T>();
             let new_size = new_cap * mem::size_of::<T>();
             let align = mem::min_align_of::<T>();
-            match reallocate_raw(old_addr, old_size, new_size, align) {
-                Ok(new_addr) => {
-                    self.raw = new_addr as *mut T;
-                    self.cap = new_cap;
-                    unsafe { ptr::write(self.raw.offset(self.len as isize), val) };
-                    self.len += 1;
-                    Ok(())
-                }
-                Err(_) => Err(val)
-            }
+            let new_addr = try!(reallocate_raw(old_addr, old_size, new_size, align), val);
+            self.raw = new_addr as *mut T;
+            self.cap = new_cap;
+            unsafe { ptr::write(self.raw.offset(self.len as isize), val) };
+            self.len += 1;
+            Ok(())
         }
     }
 

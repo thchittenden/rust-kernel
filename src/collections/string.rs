@@ -2,6 +2,7 @@ use core::prelude::*;
 use core::{fmt, str};
 use core::hash::{Hash, Hasher};
 use super::vec::Vec;
+use util::KernResult;
 
 /// A dynamically growable string. If the string is never modified there is no extra overhead. 
 pub enum String {
@@ -29,23 +30,20 @@ impl String {
         }
     }
 
-    fn make_dynamic(&mut self) -> bool {
+    fn make_dynamic(&mut self) -> KernResult<()> {
         *self = match self {
-            &mut DynamicString(_) => return true,
+            &mut DynamicString(_) => return Ok(()),
             &mut StaticString(ref s) => { 
-                if let Some(ds) = DynString::from_str(s) {
-                    DynamicString(ds)
-                } else {
-                    return false
-                }
+                let ds = try!(DynString::from_str(s));
+                DynamicString(ds)
             }
         };
-        true
+        Ok(())
     }
 
-    pub fn append(&mut self, s: &str) -> bool {
+    pub fn append(&mut self, s: &str) -> KernResult<()> {
         if self.is_static() {
-            self.make_dynamic() && self.append(s)
+            self.make_dynamic().and_then(|_| self.append(s))
         } else {
             match self {
                 &mut StaticString(_) => unreachable!(),
@@ -79,11 +77,7 @@ impl Hash for String {
 
 impl fmt::Write for String {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        if self.append(s) {
-            Ok(())
-        } else {
-            Err(fmt::Error)
-        }
+        Ok(try!(self.append(s)))
     }
 }
 
@@ -109,30 +103,28 @@ pub struct DynString {
 
 impl DynString {
     
-    pub fn new() -> Option<DynString> {
-        let vec = try_op!(Vec::new(16));
-        Some(DynString { arr: vec })
+    pub fn new() -> KernResult<DynString> {
+        let vec = try!(Vec::new(16));
+        Ok(DynString { arr: vec })
     }
 
-    pub fn from_str(s: &str) -> Option<DynString> {
-        let mut vec = try_op!(Vec::new(s.len()));
+    pub fn from_str(s: &str) -> KernResult<DynString> {
+        let mut vec = try!(Vec::new(s.len()));
         for byte in s.as_bytes() {
             assert!(vec.push(*byte).is_ok())
         }
-        Some(DynString { arr: vec })
+        Ok(DynString { arr: vec })
     }
 
-    pub fn append(&mut self, s: &str) -> bool {
+    pub fn append(&mut self, s: &str) -> KernResult<()> {
         for byte in s.as_bytes() {
-            if self.arr.push(*byte).is_err() {
-                return false;
-            }
+            try!(self.arr.push(*byte))
         }
-        true
+        Ok(())
     }
 
     pub fn as_ref(&self) -> &str {
-        // We don't really know this is safe... TODO 
+        // We know this is safe because we only put valid strings into the array.
         unsafe { str::from_utf8_unchecked(self.arr.as_slice()) }
     }
 

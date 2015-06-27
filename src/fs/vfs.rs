@@ -8,7 +8,8 @@ use collections::link::{HasDoubleLink, DoubleLink};
 use collections::string::String;
 use sync::rwlock::{ReaderGuardMap, RWLock};
 use super::{Node, File, FileSystem};
-use path::Path;
+use util::KernResult;
+use util::KernError::*;
 logger_init!(Trace);
 
 /// A virtual file system.
@@ -17,18 +18,16 @@ pub struct VFS {
 }
 
 impl VFS {
-    pub fn new() -> Option<VFS> {
-        let node = try_op!(VFSNode::new().and_then(Box::new));
+    pub fn new() -> KernResult<VFS> {
+        let node = try!(VFSNode::new().and_then(Box::new));
         let root = Rc::new(node);
-        Some(VFS { root: root })
+        Ok(VFS { root: root })
     }
 }
 
 impl FileSystem for VFS {
-    fn root_node(&self) -> Option<Rc<Node>> {
-        // We must "try" to unwrap this and rewrap it in order to coerce the upcast from VFSCursor
-        // to FileCursor.
-        Some(self.root.clone())
+    fn root_node(&self) -> KernResult<Rc<Node>> {
+        Ok(self.root.clone())
     }
 }
 
@@ -50,9 +49,9 @@ struct VFSNode {
 }
 
 impl VFSNode {
-    pub fn new() -> Option<VFSNode> {
-        let map = try_op!(HashMap::new());
-        Some(VFSNode {
+    pub fn new() -> KernResult<VFSNode> {
+        let map = try!(HashMap::new());
+        Ok(VFSNode {
             rc: AtomicUsize::new(0),
             alive: true,
             entries: RWLock::new(map)
@@ -68,12 +67,12 @@ impl HasRc for VFSNode {
 
 impl Node for VFSNode {
     
-    fn list<'a>(&'a self) -> Option<Box<Iterator<Item=&'a str> + 'a>> {
+    fn list<'a>(&'a self) -> KernResult<Box<Iterator<Item=&'a str> + 'a>> {
         let lock = self.entries.lock_reader();
-        let boxed = try_op!(Box::new(VFSFileIter {
+        let boxed = try!(Box::new(VFSFileIter {
             lock: lock.map(|map| map.iter_keys())
         }));
-        Some(boxed)
+        Ok(boxed)
     }
 
     fn count(&self) -> usize {
@@ -81,62 +80,62 @@ impl Node for VFSNode {
         self.entries.lock_reader().count()
     }
 
-    fn open_file(&self, file: &str) -> Option<Box<File>> {
+    fn open_file(&self, file: &str) -> KernResult<Box<File>> {
         trace!("opening file {}", file);
         assert!(self.alive);
         let entries = self.entries.lock_reader();
         match entries.lookup(file) {
-            None => None,
-            Some(&VFSEntry::Node{ .. }) => None,
+            None => Err(NoSuchFile),
+            Some(&VFSEntry::Node{ .. }) => Err(NoSuchFile),
             Some(&VFSEntry::File{ ref file, .. }) => {
-                let clone = try_op!(file.clone());  
-                let boxed = try_op!(Box::new(clone));
-                Some(boxed)
+                let clone = try!(file.clone());  
+                let boxed = try!(Box::new(clone));
+                Ok(boxed)
             }
         }
         
     }
 
-    fn open_node(&self, node: &str) -> Option<Rc<Node>> {
+    fn open_node(&self, node: &str) -> KernResult<Rc<Node>> {
         trace!("opening node {}", node);
         assert!(self.alive);
         match self.entries.lock_reader().lookup(node) {
-            None => None,
-            Some(&VFSEntry::File { .. }) => None,
+            None => Err(NoSuchDirectory),
+            Some(&VFSEntry::File { .. }) => Err(NoSuchDirectory),
             Some(&VFSEntry::Node { ref node, .. }) => {
-                Some(node.clone())
+                Ok(node.clone())
             }
         }
     }
 
-    fn make_file(&self, name: String) -> bool {
+    fn make_file(&self, name: String) -> KernResult<()> {
         trace!("making file {}", name);
         assert!(self.alive);
         let mut lock = self.entries.lock_writer();
         if lock.contains(name.as_str()) {
-            return false;
+            Err(FileExists)
         } else {
-            let file = try_or!(VFSFile::new(), return false);
+            let file = try!(VFSFile::new());
             let entry = VFSEntry::File { name: name, file: file, link: DoubleLink::new() };
-            let entry = try_or!(Box::new(entry), return false);
-            lock.insert(entry);
-            return true;
+            let entry = try!(Box::new(entry));
+            assert!(lock.insert(entry).is_none());
+            Ok(())
         }
     }
 
-    fn make_node(&self, name: String) -> bool {
+    fn make_node(&self, name: String) -> KernResult<()> {
         trace!("making node {}", name);
         assert!(self.alive);
         let mut lock = self.entries.lock_writer();
         if lock.contains(name.as_str()) {
             trace!("failed, {} already exists", name);
-            return false;
+            Err(DirectoryExists)
         } else {
-            let node = try_or!(VFSNode::new().and_then(Box::new).map(Rc::new), return false);
+            let node = try!(VFSNode::new().and_then(Box::new).map(Rc::new));
             let entry = VFSEntry::Node { name: name, node: node, link: DoubleLink::new() };
-            let entry = try_or!(Box::new(entry), return false);
+            let entry = try!(Box::new(entry));
             assert!(lock.insert(entry).is_none());
-            return true;
+            Ok(())
         }
     }
 
@@ -179,16 +178,16 @@ struct VFSFile {
 
 impl VFSFile {
 
-    pub fn new() -> Option<VFSFile> {
-        let dyn = try_op!(DynArray::new(32));
-        Some(VFSFile {
+    pub fn new() -> KernResult<VFSFile> {
+        let dyn = try!(DynArray::new(32));
+        Ok(VFSFile {
             data: dyn
         })
     }
 
-    pub fn clone(&self) -> Option<VFSFile> {
-        let dynclone = try_op!(self.data.clone());
-        Some(VFSFile {
+    pub fn clone(&self) -> KernResult<VFSFile> {
+        let dynclone = try!(self.data.clone());
+        Ok(VFSFile {
             data: dynclone
         })
     }

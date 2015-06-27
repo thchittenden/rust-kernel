@@ -29,6 +29,14 @@ pub mod multiboot;
 /// A box type for nonmanaged pointers.
 pub mod rawbox;
 
+/// The kernel result type.
+pub mod kernresult;
+
+pub use kernresult::KernResult;
+pub use kernresult::KernError;
+pub use kernresult::KernResultEx;
+pub use kernresult::KernErrorEx;
+
 pub const NULL_SEGMENT: u16 = 0x0000;
 pub const KERNEL_CODE_SEGMENT: u16 = 0x0008;
 pub const KERNEL_DATA_SEGMENT: u16 = 0x0010;

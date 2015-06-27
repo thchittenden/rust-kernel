@@ -15,10 +15,10 @@ pub fn test() {
         }
     }
 
-    cursor.make_node(String::from_str("test1"));
-    cursor.cd(Path::new(String::from_str("test1")));
-    cursor.make_node(String::from_str("test2"));
-    cursor.cd(Path::new(String::from_str("test2")));
+    cursor.make_node(String::from_str("test1")).unwrap();
+    cursor.cd(Path::new(String::from_str("test1"))).unwrap();
+    cursor.make_node(String::from_str("test2")).unwrap();
+    cursor.cd(Path::new(String::from_str("test2"))).unwrap();
     trace!("curdir: {:?}", cursor.get_cd());
 
 
