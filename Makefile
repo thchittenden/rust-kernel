@@ -63,7 +63,8 @@ $(DEPDIR)/%.d: $(SRCDIR)/%/mod.rs
 	@mkdir -p $(@D)
 	@-$(RUSTC) $(RUSTCFLAGS) -Z no-trans $< 2> /dev/null \
 		&& $(RUSTC) $(RUSTCFLAGS) --emit dep-info -o $@ $< 2> /dev/null \
-		&& ./getdeps.py $@ $< $(OBJDIR) $(CRATES) >> $@
+		&& ./getdeps.py $@ $< $(OBJDIR) $(CRATES) >> $@ \
+		&& sed -i $@ -e s^$@^$(OBJDIR)/lib$(*F).rlib^g
 
 $(OBJDIR)/lib%.rlib: $(DEPDIR)/%.d
 	@mkdir -p $(@D)
