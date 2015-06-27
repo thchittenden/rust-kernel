@@ -26,7 +26,7 @@ LDFLAGS := -melf_i386 -T $(LINKERSCRIPT) -static --gc-sections
 CC := gcc
 CCFLAGS := -m32 -c -ggdb -I$(INCDIR) 
 RUSTC := rustc
-RUSTCFLAGS := -O -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g --cfg 'LOG_DEVICE="$(LOG_DEVICE)"' --cfg 'LOG_LEVEL="$(LOG_LEVEL)"'
+RUSTCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g --cfg 'LOG_DEVICE="$(LOG_DEVICE)"' --cfg 'LOG_LEVEL="$(LOG_LEVEL)"'
 RUSTDOC := rustdoc
 RUSTDOCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC)
 
@@ -56,10 +56,14 @@ $(BINDIR)/$(TARGET): $(OBJ_FILES)
 	$(LD) $(LDFLAGS) -o $@ --start-group $(call reverse,$^) $(LIBDIR)/libcore.rlib --end-group
 	@-objdump -d $(BINDIR)/$(TARGET) | ./checkstack.py 2048
 
+# We first check if compilation succeeds before we emit the dep-info because otherwise the 
+# dependency file will be updated even if compilation fails and Make will try to build twice which
+# is annoying.
 $(DEPDIR)/%.d: $(SRCDIR)/%/mod.rs
 	@mkdir -p $(@D)
-	@-$(RUSTC) $(RUSTCFLAGS) --emit dep-info -o $@ $< 2> /dev/null
-	@-./getdeps.py $@ $< $(OBJDIR) $(CRATES) >> $@
+	@-$(RUSTC) $(RUSTCFLAGS) -Z no-trans $< 2> /dev/null \
+		&& $(RUSTC) $(RUSTCFLAGS) --emit dep-info -o $@ $< 2> /dev/null \
+		&& ./getdeps.py $@ $< $(OBJDIR) $(CRATES) >> $@
 
 $(OBJDIR)/lib%.rlib: $(DEPDIR)/%.d
 	@mkdir -p $(@D)
