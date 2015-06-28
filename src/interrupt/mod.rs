@@ -88,10 +88,10 @@ pub struct Regs {
 /// occurred in kernel land.
 #[repr(C, packed)]
 pub struct IRet {
-    error_code: u32,
-    eip: u32,
-    cs: u32,
-    eflags: u32,
+    pub error_code: u32,
+    pub eip: u32,
+    pub cs: u32,
+    pub eflags: u32,
     esp: u32,       // ONLY VALID IF CS == USER_CODE_SEGMENT
     ss: u32,        // ONLY VALID IF CS == USER_CODE_SEGMENT
 }

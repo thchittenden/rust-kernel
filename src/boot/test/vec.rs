@@ -1,4 +1,5 @@
 use collections::vec::Vec;
+use alloc::boxed::Box;
 logger_init!(Trace);
 
 pub fn test() {
@@ -13,5 +14,15 @@ pub fn test() {
     for i in 19 .. 9 {
         assert!(x.pop().unwrap() == i);
     }
+
+    // Test drops
+    let mut y = Vec::new(4).unwrap();
+    y.push(Box::new(3).unwrap()).unwrap();
+    y.push(Box::new(4).unwrap()).unwrap();
+    y.push(Box::new(5).unwrap()).unwrap();
+
+    let new = y.split_at(1).unwrap();
+    assert!(y.len() == 1);
+    assert!(new.len() == 2);
 }
 

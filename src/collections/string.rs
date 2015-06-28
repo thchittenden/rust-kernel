@@ -43,19 +43,55 @@ impl String {
 
     pub fn append(&mut self, s: &str) -> KernResult<()> {
         if self.is_static() {
-            self.make_dynamic().and_then(|_| self.append(s))
-        } else {
-            match self {
-                &mut StaticString(_) => unreachable!(),
-                &mut DynamicString(ref mut ds) => ds.append(s)
-            }
+            try!(self.make_dynamic())
+        } 
+        match self {
+            &mut StaticString(_) => unreachable!(),
+            &mut DynamicString(ref mut ds) => ds.append(s)
+        }
+    }
+
+    pub fn push(&mut self, c: char) -> KernResult<()> {
+        if self.is_static() {
+            try!(self.make_dynamic())
+        } 
+        match self {
+            &mut StaticString(_) => unreachable!(),
+            &mut DynamicString(ref mut ds) => ds.push(c)
+        }
+    } 
+
+    pub fn pop(&mut self) -> Option<char> {
+        match self {
+            &mut StaticString(ref mut s) => {
+                let len = s.len(); 
+                if len == 0 {
+                    None 
+                } else {
+                    let c = s.char_at_reverse(len);
+                    *s = unsafe { s.slice_unchecked(0, len - c.len_utf8()) };
+                    Some(c)
+                }
+            },
+            &mut DynamicString(ref mut ds) => ds.pop()
         }
     }
 
     pub fn as_str(&self) -> &str {
         match self {
             &StaticString(ref s) => s,
-            &DynamicString(ref ds) => ds.as_ref()
+            &DynamicString(ref ds) => ds.as_str()
+        }
+    }
+
+    pub fn split_at(&mut self, idx: usize) -> KernResult<String> {
+        try!(self.make_dynamic());
+        match self {
+            &mut StaticString(_) => unreachable!(),
+            &mut DynamicString(ref mut ds) => {
+               let new = try!(ds.arr.split_at(idx));
+               Ok(DynamicString(DynString { arr: new }))
+            }
         }
     }
 
@@ -123,7 +159,28 @@ impl DynString {
         Ok(())
     }
 
-    pub fn as_ref(&self) -> &str {
+    pub fn push(&mut self, c: char) -> KernResult<()> {
+        try!(self.arr.reserve(c.len_utf8()));
+        let last = self.arr.len();
+        let slice = unsafe { self.arr.as_mut_slice_full() };
+        assert!(c.encode_utf8(&mut slice[last..]).is_some());
+        Ok(())
+    }
+
+    pub fn pop(&mut self) -> Option<char> {
+        let len = self.arr.len();
+        if len == 0 {
+            None
+        } else {
+            let c = self.as_str().char_at_reverse(len);
+            for _ in 0..c.len_utf8() {
+                self.arr.pop();
+            }
+            Some(c)
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
         // We know this is safe because we only put valid strings into the array.
         unsafe { str::from_utf8_unchecked(self.arr.as_slice()) }
     }

@@ -20,4 +20,8 @@ pub fn test() {
 
     assert!(y.append(x.as_str()).is_ok());
     trace!("string4: {}", y);
+
+    let y2 = y.split_at(5).unwrap();
+    trace!("y[0-4] = {}", y);
+    trace!("y[5-.] = {}", y2);
 }

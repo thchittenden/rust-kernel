@@ -85,13 +85,12 @@ impl Node for VFSNode {
         assert!(self.alive);
         let entries = self.entries.lock_reader();
         match entries.lookup(file) {
-            None => Err(NoSuchFile),
-            Some(&VFSEntry::Node{ .. }) => Err(NoSuchFile),
             Some(&VFSEntry::File{ ref file, .. }) => {
                 let clone = try!(file.clone());  
                 let boxed = try!(Box::new(clone));
                 Ok(boxed)
             }
+            _ => Err(NoSuchFile)
         }
         
     }
@@ -100,11 +99,13 @@ impl Node for VFSNode {
         trace!("opening node {}", node);
         assert!(self.alive);
         match self.entries.lock_reader().lookup(node) {
-            None => Err(NoSuchDirectory),
-            Some(&VFSEntry::File { .. }) => Err(NoSuchDirectory),
             Some(&VFSEntry::Node { ref node, .. }) => {
                 Ok(node.clone())
             }
+            Some(&VFSEntry::Mount { ref fs, .. }) => {
+                fs.root_node()
+            }
+            _ => Err(NoSuchDirectory)
         }
     }
 
@@ -139,12 +140,25 @@ impl Node for VFSNode {
         }
     }
 
+    fn mount(&self, name: String, fs: Box<FileSystem>) -> KernResult<()> {
+        let mut lock = self.entries.lock_writer();
+        if lock.contains(name.as_str()) {
+            Err(DirectoryExists)
+        } else {
+            let entry = VFSEntry::Mount { name: name, fs: fs, link: DoubleLink::new() };
+            let entry = try!(Box::new(entry));
+            assert!(lock.insert(entry).is_none());
+            Ok(())
+        }
+    }
+
 }
 
 
 enum VFSEntry {
     Node { name: String, node: Rc<VFSNode>, link: DoubleLink<VFSEntry> },
     File { name: String, file: VFSFile, link: DoubleLink<VFSEntry> },
+    Mount { name: String, fs: Box<FileSystem>, link: DoubleLink<VFSEntry> },
 }
 
 impl HasKey<str> for VFSEntry {
@@ -152,6 +166,7 @@ impl HasKey<str> for VFSEntry {
         match self {
             &VFSEntry::Node { ref name, .. } => name.as_str(),
             &VFSEntry::File { ref name, .. } => name.as_str(),
+            &VFSEntry::Mount { ref name, .. } => name.as_str(),
         }
     }
 }
@@ -161,6 +176,7 @@ impl HasDoubleLink<VFSEntry> for VFSEntry {
         match self {
             &VFSEntry::Node { ref link, .. } => link,
             &VFSEntry::File { ref link, .. } => link,
+            &VFSEntry::Mount { ref link, .. } => link,
         }
     }
 
@@ -168,6 +184,7 @@ impl HasDoubleLink<VFSEntry> for VFSEntry {
         match self {
             &mut VFSEntry::Node { ref mut link, .. } => link,
             &mut VFSEntry::File { ref mut link, .. } => link,
+            &mut VFSEntry::Mount { ref mut link, .. } => link,
         }
     }
 }

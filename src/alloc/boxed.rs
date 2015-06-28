@@ -13,7 +13,7 @@ use core::ops::{Deref, DerefMut, CoerceUnsized};
 use core::marker::Unsize;
 use core::intrinsics::drop_in_place;
 use util::KernResult;
-logger_init!(Trace);
+logger_init!(Debug);
 
 /// A pointer type for heap allocations.
 pub struct Box<T: ?Sized>(*mut T);
@@ -72,8 +72,8 @@ impl <T: ?Sized> Drop for Box<T> {
     /// be lost forever.
     fn drop(&mut self) {
         // If we haven't already been dropped, drop the box contents and deallocate the storage.
+        trace!("dropping box 0x{:x}", self.0 as *const () as usize);
         if self.0 as *const () as usize != mem::POST_DROP_USIZE {
-            trace!("dropping {:p}", self.0 as *const ());
             unsafe { drop_in_place(&mut *self.0) };
             ::deallocate(unsafe { Unique::new(self.0) });
         }

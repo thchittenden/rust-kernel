@@ -48,3 +48,9 @@ impl<E> From<KernErrorEx<E>> for fmt::Error {
         fmt::Error
     }
 }
+
+impl<E: fmt::Debug> fmt::Debug for KernErrorEx<E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "KernErrorEx {{ err: {:?}, ex: {:?} }}", self.err, self.ex)
+    }
+}

@@ -76,7 +76,7 @@ fn threadfn() -> ! {
     loop { trace!("hello from thread {}", tid) }
 }
 
-fn nop(_: u8, _: &mut Regs, _: &mut IRet) {
+fn nop(_: u8, _: &mut Regs, iret: &mut IRet) {
     trace!("breakpoint");
 }
 

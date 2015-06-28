@@ -21,6 +21,15 @@ pub fn test() {
     cursor.cd(Path::new(String::from_str("test2"))).unwrap();
     trace!("curdir: {:?}", cursor.get_cd());
 
+    let mut path = Path::new(String::from_str("/"));
+    path.push_dir("a").unwrap();
+    path.push_dir("deep").unwrap();
+    path.push_dir("path").unwrap();
+    path.push_dir("here").unwrap();
+    trace!("path: {}", path);
+    while let Ok(Some(dir)) = path.pop_dir() {
+        trace!("path: {} + {}", path, dir);
+    }
 
 
 }

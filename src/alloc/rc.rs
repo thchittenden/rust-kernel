@@ -4,6 +4,7 @@ use core::ops::{Deref, CoerceUnsized};
 use core::marker::Unsize;
 use core::fmt;
 use boxed::Box;
+logger_init!(Debug);
 
 /// Indicates that a type has an internal reference count.
 pub trait HasRc {
@@ -37,6 +38,7 @@ impl<T: ?Sized + HasRc> Clone for Rc<T> {
 
 impl<T: ?Sized + HasRc> Drop for Rc<T> {
     fn drop(&mut self) {
+        trace!("dropping rc 0x{:x}", self.value as *const () as usize);
         let count = unsafe { &*self.value }.get_count().fetch_sub(1, Ordering::Relaxed);
         if count == 1 {
             // We were the last reference. Drop the contents.

@@ -6,6 +6,7 @@ use core::ops::{Index, IndexMut};
 use core::{ptr, mem, marker};
 use core::slice;
 use core::cmp::max;
+use core::intrinsics::{drop_in_place, copy_nonoverlapping};
 use alloc::{allocate_raw, deallocate_raw, reallocate_raw};
 use util::{KernResult, KernResultEx};
 
@@ -35,13 +36,14 @@ impl<T> Vec<T> {
         let size = self.len * mem::size_of::<T>();
         let align = mem::min_align_of::<T>();
         let addr = try!(allocate_raw(size, align));
-        let mut vec = Vec {
+        let vec = Vec {
             raw: addr as *mut T,
             cap: self.len,
             len: self.len,
         };
         for i in 0..self.len {
-            vec[i] = self[i].clone();
+            // Perform a ptr::write so we don't try to drop the contents of the destination.
+            unsafe { ptr::write(vec.raw.offset(i as isize), self[i].clone()) };
         }
         Ok(vec)
     }
@@ -49,6 +51,29 @@ impl<T> Vec<T> {
     /// Returns the current number of elements in the vector.
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    fn resize(&mut self, new_cap: usize) -> KernResult<()> {
+        assert!(self.len < new_cap);
+        let old_addr = self.raw as usize;
+        let old_cap = self.cap;
+        let old_size = old_cap * mem::size_of::<T>();
+        let new_size = new_cap * mem::size_of::<T>();
+        let align = mem::min_align_of::<T>();
+        let new_addr = try!(reallocate_raw(old_addr, old_size, new_size, align));
+        self.raw = new_addr as *mut T;
+        self.cap = new_cap;
+        Ok(())
+    }
+
+    pub fn reserve(&mut self, count: usize) -> KernResult<()> {
+        let gap = self.cap - self.len;
+        if gap < count {
+            let new_cap = self.cap + gap;
+            self.resize(new_cap)
+        } else {
+            Ok(())
+        }
     }
 
     /// Attempts to push an element onto the queue. If the vector cannot allocate enough space to
@@ -62,15 +87,8 @@ impl<T> Vec<T> {
             Ok(())
         } else {
             // Need to reallocate!
-            let old_addr = self.raw as usize;
-            let old_cap = self.cap;
             let new_cap = max(self.cap, 1) * 2;
-            let old_size = old_cap * mem::size_of::<T>();
-            let new_size = new_cap * mem::size_of::<T>();
-            let align = mem::min_align_of::<T>();
-            let new_addr = try!(reallocate_raw(old_addr, old_size, new_size, align), val);
-            self.raw = new_addr as *mut T;
-            self.cap = new_cap;
+            try!(self.resize(new_cap), val);
             unsafe { ptr::write(self.raw.offset(self.len as isize), val) };
             self.len += 1;
             Ok(())
@@ -89,16 +107,46 @@ impl<T> Vec<T> {
         }
     }
 
+    pub fn split_at(&mut self, idx: usize) -> KernResult<Vec<T>> {
+        if idx >= self.len {
+            Vec::new(0)
+        } else {
+            let new_count = self.len - idx;
+            let mut new = try!(Vec::new(new_count));
+            new.len = new_count;
+            unsafe { 
+                copy_nonoverlapping(self.raw.offset(idx as isize), new.raw, new_count);
+            }
+            self.len = idx;
+            Ok(new)
+        }
+    }
+
     pub fn as_slice(&self) -> &[T] {
         // We know this is safe because we know we've allocated at least self.len entries.
         unsafe { slice::from_raw_parts(self.raw, self.len) }
     }
 
+    pub unsafe fn as_slice_full(&self) -> &[T] {
+        slice::from_raw_parts(self.raw, self.cap)
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        // We know this is safe because we know we've allocated at least self.len entries.
+        unsafe { slice::from_raw_parts_mut(self.raw, self.len) }
+    }
+
+    pub unsafe fn as_mut_slice_full(&mut self) -> &mut [T] {
+        slice::from_raw_parts_mut(self.raw, self.cap)
+    }
 }
 
 impl<T> Drop for Vec<T> {
     fn drop(&mut self) {
         if self.len != mem::POST_DROP_USIZE {
+            for i in 0 .. self.len {
+                unsafe { drop_in_place(self.raw.offset(i as isize)) };
+            }
             let size = self.cap * mem::size_of::<T>();
             deallocate_raw(self.raw as usize, size);
         }

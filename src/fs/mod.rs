@@ -36,6 +36,8 @@ pub trait Node : HasRc {
 
     fn make_node(&self, node: String) -> KernResult<()>; 
 
+    fn mount(&self, node: String, fs: Box<FileSystem>) -> KernResult<()>;
+
 }
 
 pub trait FileSystem {
