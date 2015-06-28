@@ -2,8 +2,7 @@ use core::prelude::*;
 use core::{str, mem, fmt};
 use collections::string::String;
 use util::KernResult;
-
-pub const PATH_SEP: &'static str = "/";
+use ::{PATH_SEP, PARENT_DIR};
 
 #[derive(Debug)]
 pub struct Path {
@@ -72,7 +71,6 @@ impl Path {
                 }
             }
         }
-
     }
 
     pub fn dirs(&self) -> str::Split<&'static str> {

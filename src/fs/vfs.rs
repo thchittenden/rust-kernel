@@ -1,15 +1,28 @@
+//! An in-memory virtual file system.
+//!
+//! This file system lives at the root of our kernel. Directories are implemented as hashmaps from
+//! Strings to VFSEntries. Synchronization is performed at each directory using a reader-writer
+//! lock.
+//! 
+//! Every directory (VFSNode) additionally contains a reference counted pointer to its parent.
+//! While this introduces a cycle in reference-counted graph, this is ok because we will manually
+//! tear down the graph when removing directories. It is illegal to remove a directory unless it is
+//! empty and thus there will be no backreferences to it when it is removed.
+//!
 use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc};
 use core::prelude::*;
 use core::atomic::AtomicUsize;
+use core::mem;
 use collections::hashmap::{HashMap, HasKey, KeyIter};
 use collections::dynarray::DynArray;
 use collections::link::{HasDoubleLink, DoubleLink};
 use collections::string::String;
-use sync::rwlock::{ReaderGuardMap, RWLock};
+use sync::rwlock::{ReaderGuard, WriterGuard, ReaderGuardMap, RWLock};
 use super::{Node, File, FileSystem};
 use util::KernResult;
 use util::KernError::*;
+use ::PARENT_DIR;
 logger_init!(Trace);
 
 /// A virtual file system.
@@ -19,7 +32,7 @@ pub struct VFS {
 
 impl VFS {
     pub fn new() -> KernResult<VFS> {
-        let node = try!(VFSNode::new().and_then(Box::new));
+        let node = try!(VFSNode::new(VFSParent::Root).and_then(Box::new));
         let root = Rc::new(node);
         Ok(VFS { root: root })
     }
@@ -29,10 +42,17 @@ impl FileSystem for VFS {
     fn root_node(&self) -> KernResult<Rc<Node>> {
         Ok(self.root.clone())
     }
+    fn set_parent(&mut self, parent: Option<Rc<Node>>) {
+        let mut state = self.root.state.lock_writer();
+        state.parent = match parent {
+            Some(rc) => VFSParent::Linked(rc),
+            None => VFSParent::Root,
+        };
+    }
 }
 
 struct VFSFileIter<'a> {
-    lock: ReaderGuardMap<'a, HashMap<str, VFSEntry>, KeyIter<'a, str, VFSEntry>>,
+    lock: ReaderGuardMap<'a, VFSNodeState, KeyIter<'a, str, VFSEntry>>,
 }
 
 impl<'a> Iterator for VFSFileIter<'a> {
@@ -42,20 +62,60 @@ impl<'a> Iterator for VFSFileIter<'a> {
     }
 }
 
+/// Possible states for a VFSNode's parent.
+enum VFSParent {
+    /// The parent is alive and at the contained node.
+    Linked(Rc<Node>),
+
+    /// The current node was removed from the parent.
+    Unlinked,
+
+    /// The current node has no parent because it's the root.
+    Root,
+}
+
+struct VFSNodeState {
+    parent: VFSParent,
+    entries: HashMap<str, VFSEntry>,
+}
+
 struct VFSNode {
     rc: AtomicUsize,
-    alive: bool,
-    entries: RWLock<HashMap<str, VFSEntry>>
+    state: RWLock<VFSNodeState>,
 }
 
 impl VFSNode {
-    pub fn new() -> KernResult<VFSNode> {
+    pub fn new(parent: VFSParent) -> KernResult<VFSNode> {
         let map = try!(HashMap::new());
         Ok(VFSNode {
             rc: AtomicUsize::new(0),
-            alive: true,
-            entries: RWLock::new(map)
+            state: RWLock::new(VFSNodeState {
+                parent: parent,
+                entries: map,
+            })
         })
+    }
+
+    /// Locks the state as a reader and checks to make sure this directory is still linked. If it
+    /// is not this returns Err(DirectoryUnlinked).
+    #[inline]
+    fn checked_lock_reader(&self) -> KernResult<ReaderGuard<VFSNodeState>> {
+        let state = self.state.lock_reader();
+        match state.parent {
+            VFSParent::Unlinked => Err(DirectoryUnlinked),
+            _ => Ok(state)
+        }
+    }
+
+    /// Locks the state as a writer and checks to make sure this directory is still linked. If it
+    /// is not this returns Err(DirectoryUnlinked).
+    #[inline]
+    fn checked_lock_writer(&self) -> KernResult<WriterGuard<VFSNodeState>> {
+        let state = self.state.lock_writer();
+        match state.parent {
+            VFSParent::Unlinked => Err(DirectoryUnlinked),
+            _ => Ok(state)
+        }
     }
 }
 
@@ -66,25 +126,23 @@ impl HasRc for VFSNode {
 }
 
 impl Node for VFSNode {
-    
+   
     fn list<'a>(&'a self) -> KernResult<Box<Iterator<Item=&'a str> + 'a>> {
-        let lock = self.entries.lock_reader();
+        let state = try!(self.checked_lock_reader());
         let boxed = try!(Box::new(VFSFileIter {
-            lock: lock.map(|map| map.iter_keys())
+            lock: state.map(|state| state.entries.iter_keys())
         }));
         Ok(boxed)
     }
 
     fn count(&self) -> usize {
-        assert!(self.alive);
-        self.entries.lock_reader().count()
+        self.state.lock_reader().entries.count()
     }
 
     fn open_file(&self, file: &str) -> KernResult<Box<File>> {
         trace!("opening file {}", file);
-        assert!(self.alive);
-        let entries = self.entries.lock_reader();
-        match entries.lookup(file) {
+        let state = self.state.lock_reader();
+        match state.entries.lookup(file) {
             Some(&VFSEntry::File{ ref file, .. }) => {
                 let clone = try!(file.clone());  
                 let boxed = try!(Box::new(clone));
@@ -97,57 +155,65 @@ impl Node for VFSNode {
 
     fn open_node(&self, node: &str) -> KernResult<Rc<Node>> {
         trace!("opening node {}", node);
-        assert!(self.alive);
-        match self.entries.lock_reader().lookup(node) {
-            Some(&VFSEntry::Node { ref node, .. }) => {
-                Ok(node.clone())
+        let state = try!(self.checked_lock_reader());
+        if node == PARENT_DIR {
+            // The parent directory is contained in the parent field.
+            match state.parent {
+                VFSParent::Linked(ref parent) => Ok(parent.clone()),
+                VFSParent::Root => Err(NoSuchDirectory),
+                VFSParent::Unlinked => unreachable!(),
             }
-            Some(&VFSEntry::Mount { ref fs, .. }) => {
-                fs.root_node()
+        } else {
+            match state.entries.lookup(node) {
+                Some(&VFSEntry::Node { ref node, .. }) => {
+                    Ok(node.clone())
+                }
+                Some(&VFSEntry::Mount { ref fs, .. }) => {
+                    fs.root_node()
+                }
+                _ => Err(NoSuchDirectory)
             }
-            _ => Err(NoSuchDirectory)
         }
     }
 
     fn make_file(&self, name: String) -> KernResult<()> {
         trace!("making file {}", name);
-        assert!(self.alive);
-        let mut lock = self.entries.lock_writer();
-        if lock.contains(name.as_str()) {
+        let mut state = try!(self.checked_lock_writer());
+        if state.entries.contains(name.as_str()) {
             Err(FileExists)
         } else {
             let file = try!(VFSFile::new());
             let entry = VFSEntry::File { name: name, file: file, link: DoubleLink::new() };
             let entry = try!(Box::new(entry));
-            assert!(lock.insert(entry).is_none());
+            assert!(state.entries.insert(entry).is_none());
             Ok(())
         }
     }
 
     fn make_node(&self, name: String) -> KernResult<()> {
         trace!("making node {}", name);
-        assert!(self.alive);
-        let mut lock = self.entries.lock_writer();
-        if lock.contains(name.as_str()) {
+        let mut state = try!(self.checked_lock_writer());
+        if state.entries.contains(name.as_str()) {
             trace!("failed, {} already exists", name);
             Err(DirectoryExists)
         } else {
-            let node = try!(VFSNode::new().and_then(Box::new).map(Rc::new));
+            let parent = VFSParent::Linked(Rc::from_ref(self));
+            let node = try!(VFSNode::new(parent).and_then(Box::new).map(Rc::new));
             let entry = VFSEntry::Node { name: name, node: node, link: DoubleLink::new() };
             let entry = try!(Box::new(entry));
-            assert!(lock.insert(entry).is_none());
+            assert!(state.entries.insert(entry).is_none());
             Ok(())
         }
     }
 
     fn mount(&self, name: String, fs: Box<FileSystem>) -> KernResult<()> {
-        let mut lock = self.entries.lock_writer();
-        if lock.contains(name.as_str()) {
+        let mut state = try!(self.checked_lock_writer());
+        if state.entries.contains(name.as_str()) {
             Err(DirectoryExists)
         } else {
             let entry = VFSEntry::Mount { name: name, fs: fs, link: DoubleLink::new() };
             let entry = try!(Box::new(entry));
-            assert!(lock.insert(entry).is_none());
+            assert!(state.entries.insert(entry).is_none());
             Ok(())
         }
     }

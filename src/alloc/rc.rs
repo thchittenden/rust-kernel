@@ -27,6 +27,18 @@ impl<T: ?Sized + HasRc> Rc<T> {
         val.get_count().store(1, Ordering::Relaxed);
         Rc { value: unsafe { val.into_raw() } }
     }
+
+    /// Constructs a ref-counted pointer from a reference.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the value does not have at least once reference to it already. This
+    /// would indicate that the value may not have originated from a Box and thus it may be unsafe
+    /// to try to deallocate.
+    pub fn from_ref(val: &T) -> Rc<T> {
+        assert!(val.get_count().fetch_add(1, Ordering::Relaxed) > 0);
+        Rc { value: val as *const T as *mut T } 
+    }
 }
 
 impl<T: ?Sized + HasRc> Clone for Rc<T> {

@@ -22,6 +22,9 @@ use path::Path;
 use util::KernResult;
 logger_init!(Trace);
 
+pub const PATH_SEP: &'static str = "/";
+pub const PARENT_DIR: &'static str = "..";
+
 pub trait Node : HasRc {
     
     fn count(&self) -> usize;
@@ -44,6 +47,8 @@ pub trait FileSystem {
     
     fn root_node(&self) -> KernResult<Rc<Node>>;
 
+    fn set_parent(&mut self, parent: Option<Rc<Node>>);
+
 }
 
 pub trait File {
@@ -55,7 +60,7 @@ pub trait File {
 }
 
 pub struct FileCursor {
-    curdir: Path,
+    curdir: Path, // Probably want to make this a stack of nodes.
     node: Rc<Node>,
 }
 
@@ -76,8 +81,14 @@ impl FileCursor {
         let mut cur = self.node.clone();
         for dir in path.dirs() {
             cur = try!(cur.open_node(dir));
+            if dir == PARENT_DIR {
+                // This could be optimized so it can't fail.
+                try!(self.curdir.pop_dir());
+            } else {
+                try!(self.curdir.push_dir(dir));
+            }
+            
         }
-        try!(self.curdir.append(path));
         self.node = cur;
         Ok(())
     }
