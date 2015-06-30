@@ -45,7 +45,7 @@ pub fn init() {
 pub fn begin() -> ! {
     let mut s = SCHED.lock();
     assert!(s.thread.is_none());
-    assert!(s.runnable.length() > 0);
+    assert!(s.runnable.len() > 0);
 
     // TODO. Initialize idle here.
 
@@ -70,17 +70,19 @@ pub fn _yield (tid: Option<usize>) {
     match tid {
         Some(_) => unimplemented!(),
         None => {
-            // Move the current thread to the end of the queue and move the next thread into the running
-            // thread position.
-            let curr_thread = s.thread.take().unwrap();
-            let next_thread = s.runnable.pop_head().unwrap();
-            s.runnable.push_tail(curr_thread);
-            s.thread = Some(next_thread);
+            if !s.runnable.is_empty() {
+                // Move the current thread to the end of the queue and move the next thread into the running
+                // thread position.
+                let curr_thread = s.thread.take().unwrap();
+                let next_thread = s.runnable.pop_head().unwrap();
+                s.runnable.push_tail(curr_thread);
+                s.thread = Some(next_thread);
 
-            // Perform the stack swap.
-            let curr_thread: &Thread = s.runnable.borrow_tail().unwrap();
-            let next_thread: &Thread = s.thread.as_ref().unwrap();
-            unsafe { context_switch(curr_thread, next_thread) };
+                // Perform the stack swap.
+                let curr_thread: &Thread = s.runnable.borrow_tail().unwrap();
+                let next_thread: &Thread = s.thread.as_ref().unwrap();
+                unsafe { context_switch(curr_thread, next_thread) };
+            }
         }
     }
 

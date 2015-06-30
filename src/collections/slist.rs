@@ -21,6 +21,7 @@ impl<T: HasSingleLink<T> + ?Sized> SList<T> {
         assert!(new_head.slink().link.is_none());
         new_head.slink_mut().link = self.top.take();
         self.top = Some(new_head);
+        self.len += 1;
     }
 
     /// Tries to pop an element from the list. Returns None if there are no elements in the list,
@@ -28,6 +29,7 @@ impl<T: HasSingleLink<T> + ?Sized> SList<T> {
     pub fn pop(&mut self) -> Option<Box<T>> {
         self.top.take().map(|mut top| {
             self.top = top.slink_mut().link.take();
+            self.len -= 1;
             top
         })
     }
@@ -44,13 +46,14 @@ impl<T: HasSingleLink<T> + ?Sized> SList<T> {
             if cond(&*top) {
                 // The top element matched. Remove it and set the top to the next pointer.
                 self.top = top.slink_mut().link.take();
+                self.len -= 1;
                 Some(top)
             } else {
                 // The top element didn't match. Reset the top pointer and try to find the element
                 // to be removed.
                 self.top = Some(top);
                 let mut res: Option<Box<T>> = None;
-                for item in self {
+                for item in self.iter_mut() {
                     item.slink_mut().link = item.slink_mut().link.take().and_then(|mut next| {
                         if cond(&*next) {
                             // Found the node satisfying the condition. Remove it and return it.
@@ -61,6 +64,9 @@ impl<T: HasSingleLink<T> + ?Sized> SList<T> {
                             Some(next)
                         }
                     })
+                }
+                if res.is_some() {
+                    self.len -= 1;
                 }
                 res
             }
@@ -91,6 +97,13 @@ impl<T: HasSingleLink<T> + ?Sized> SList<T> {
             top: self.top.as_ref().map(|top| &**top)
         }
     }
+
+    pub fn iter_mut(&mut self) -> IterMut<T> {
+        IterMut {
+            top: self.top.as_mut().map(|top| unsafe { Raw::from_box(&mut *top) }),
+            _marker: marker::PhantomData
+        }
+    }
 }
 
 impl<'a, T: HasSingleLink<T> + ?Sized> IntoIterator for &'a SList<T> {
@@ -105,10 +118,7 @@ impl<'a, T: HasSingleLink<T> + ?Sized> IntoIterator for &'a mut SList<T> {
     type Item = &'a mut T;
     type IntoIter = IterMut<'a, T>;
     fn into_iter(self) -> IterMut<'a, T> {
-        IterMut {
-            top: self.top.as_mut().map(|top| unsafe { Raw::from_box(&mut *top) }),
-            _marker: marker::PhantomData
-        }
+        self.iter_mut()
     }
 }
 

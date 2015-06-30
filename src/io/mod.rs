@@ -12,6 +12,7 @@
 extern crate mutex;
 extern crate alloc;
 extern crate interrupt;
+extern crate collections;
 
 /// The serial port module.
 pub mod serial;

@@ -25,6 +25,7 @@ pub enum KernError {
     FileExists,
     DirectoryExists,
     DirectoryUnlinked,
+    DirectoryNotEmpty,
 }
 
 pub struct KernErrorEx<E> {

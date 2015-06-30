@@ -4,7 +4,6 @@
 //! handle failure conditions. Thus when constructing Boxes we must return an Option in case the
 //! allocation fails.s 
 use core::prelude::*;
-use core::ptr::Unique;
 use core::hash::{self, Hash};
 use core::cmp::Ordering;
 use core::mem;
@@ -20,19 +19,15 @@ pub struct Box<T: ?Sized>(*mut T);
 
 impl<T> Box<T> {
    
-    fn make_box(mut uniq: Unique<T>) -> Box<T> {
-        Box(unsafe { uniq.get_mut() as *mut T })
-    }
-
     /// Allocates memory on the heap and then moves `x` into it.
     pub fn new(x: T) -> KernResult<Box<T>> {
-        ::allocate(x).map(Self::make_box)
+        ::allocate(x).map(Box)
     }
 
     /// Allocates memory and calls the initialization function on it. This helps avoid copying
     /// large data structures on the stack. This is especially important when allocating stacks!
     pub fn emplace<F>(init: F) -> KernResult<Box<T>> where F: Fn(&mut T) {
-        ::allocate_emplace(init).map(Self::make_box)
+        ::allocate_emplace(init).map(Box)
     }
 
 }
@@ -75,7 +70,7 @@ impl <T: ?Sized> Drop for Box<T> {
         trace!("dropping box 0x{:x}", self.0 as *const () as usize);
         if self.0 as *const () as usize != mem::POST_DROP_USIZE {
             unsafe { drop_in_place(&mut *self.0) };
-            ::deallocate(unsafe { Unique::new(self.0) });
+            ::deallocate(self.0);
         }
     }
 }

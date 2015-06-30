@@ -1,6 +1,6 @@
 #![crate_name="boot"]
 #![crate_type="rlib"]
-#![feature(no_std,core,core_prelude)]
+#![feature(no_std,core,core_prelude,core_str_ext)]
 #![no_std]
 //!
 //! This module is the entry point of the kernel. It is responsible for initializing all other
@@ -60,14 +60,9 @@ pub extern fn kernel_main (hdr: &MultibootHeader) -> ! {
     // Perform some self tests.
     test::test_all();
 
-    // Do nothing.
-    loop { }
-    
     // Create some threads.
-    let t1 = Thread::new(threadfn).unwrap();
-    let t2 = Thread::new(threadfn).unwrap();
-    sched::schedule_thread(t1);
-    sched::schedule_thread(t2);
+    let shell = Thread::new(test::vfs_shell).unwrap();
+    sched::schedule_thread(shell);
     sched::begin();
 }
 

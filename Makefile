@@ -16,7 +16,7 @@ LOG_LEVEL  := trace
 LOG_DEVICE := serial
 
 # Module config. This order is important (and fragile!)
-CRATES := util mutex interrupt alloc io collections devices mem task sched sync rt fs boot
+CRATES := util mutex interrupt alloc collections io devices mem task sched sync rt fs boot
 
 # Program config.
 AS := gcc
@@ -26,7 +26,7 @@ LDFLAGS := -melf_i386 -T $(LINKERSCRIPT) -static --gc-sections
 CC := gcc
 CCFLAGS := -m32 -c -ggdb -I$(INCDIR) 
 RUSTC := rustc
-RUSTCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g --cfg 'LOG_DEVICE="$(LOG_DEVICE)"' --cfg 'LOG_LEVEL="$(LOG_LEVEL)"'
+RUSTCFLAGS := -O -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g --cfg 'LOG_DEVICE="$(LOG_DEVICE)"' --cfg 'LOG_LEVEL="$(LOG_LEVEL)"'
 RUSTDOC := rustdoc
 RUSTDOCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC)
 

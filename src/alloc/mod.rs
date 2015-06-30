@@ -1,6 +1,6 @@
 #![crate_name="alloc"]
 #![crate_type="rlib"]
-#![feature(no_std,const_fn,lang_items,unique,core,filling_drop,core_prelude,core_intrinsics,unsize,coerce_unsized)]
+#![feature(no_std,const_fn,lang_items,core,filling_drop,core_prelude,core_intrinsics,unsize,coerce_unsized)]
 #![no_std]
 //!
 //! The kernel allocation library.
@@ -31,9 +31,8 @@ pub mod rc;
 mod lmm;
 
 use core::prelude::*;
-use core::mem;
+use core::{ptr, mem};
 use core::mem::min_align_of;
-use core::ptr::Unique;
 use mutex::Mutex;
 use lmm::{LMMAllocator, LMM_ALLOCATOR_INIT};
 use util::KernResult;
@@ -62,32 +61,30 @@ trait Allocator {
 
     /// Tries to allocate an object aligned to `align`. Returns a unique pointer to the object if
     /// successful and `None` otherwise.
-    fn allocate_aligned<T>(&mut self, elem: T, align: usize) -> KernResult<Unique<T>> {
-        let addr = try!(self.allocate_raw(mem::size_of::<T>(), align));
-        let uniq = unsafe { Unique::new(addr as *mut T) };
-        unsafe { **uniq = elem };
-        Ok(uniq)
+    fn allocate_aligned<T>(&mut self, elem: T, align: usize) -> KernResult<*mut T> {
+        let addr = try!(self.allocate_raw(mem::size_of::<T>(), align)) as *mut T;
+        unsafe { ptr::write(addr, elem) };
+        Ok(addr)
     }
   
     /// Tries to allocate an object from a constructor. Returns a unique pointer to the object if
     /// successful and `None` otherwise.
-    fn allocate_emplace<F, T>(&mut self, init: F) -> KernResult<Unique<T>> where F: Fn(&mut T) {
-        let addr = try!(self.allocate_raw(mem::size_of::<T>(), min_align_of::<T>()));
-        let uniq = unsafe { Unique::new(addr as *mut T) };
-        init(unsafe { &mut**uniq  });
-        Ok(uniq)
+    fn allocate_emplace<F, T>(&mut self, init: F) -> KernResult<*mut T> where F: Fn(&mut T) {
+        let addr = try!(self.allocate_raw(mem::size_of::<T>(), min_align_of::<T>())) as *mut T;
+        init(unsafe { &mut*addr });
+        Ok(addr)
     }
    
     /// Tries to allocate an object at its default alignment. Returns a unique pointer to the
     /// object if successful and `None` otherwise.
-    fn allocate<T>(&mut self, elem: T) -> KernResult<Unique<T>> {
+    fn allocate<T>(&mut self, elem: T) -> KernResult<*mut T> {
         self.allocate_aligned(elem, min_align_of::<T>())
     }
 
     /// Frees an object located on the heap.
-    fn deallocate<T: ?Sized>(&mut self, mut elem: Unique<T>) {
-        let addr = unsafe { elem.get_mut() } as *const _ as *const () as usize;
-        let size = mem::size_of_val(unsafe { elem.get() });
+    fn deallocate<T: ?Sized>(&mut self, elem: *mut T) {
+        let addr = elem as *const () as usize;
+        let size = mem::size_of_val(unsafe { &*elem });
         self.deallocate_raw(addr, size);
     }
 
@@ -129,7 +126,7 @@ pub extern fn deallocate_raw(addr: usize, size: usize) {
 /// # Failures
 ///
 /// Fails if the heap cannot find a slot big enough to accomodate the requested object.
-pub extern fn allocate<T>(elem: T) -> KernResult<Unique<T>> {
+pub extern fn allocate<T>(elem: T) -> KernResult<*mut T> {
     ALLOCATOR.lock().allocate(elem)
 }
 
@@ -139,13 +136,13 @@ pub extern fn allocate<T>(elem: T) -> KernResult<Unique<T>> {
 /// # Failures
 ///
 /// Fails if the heap cannot find a slot big enough to accomodate the requested object.
-pub extern fn allocate_emplace<F, T>(init: F) -> KernResult<Unique<T>> where F: Fn(&mut T) {
+pub extern fn allocate_emplace<F, T>(init: F) -> KernResult<*mut T> where F: Fn(&mut T) {
     ALLOCATOR.lock().allocate_emplace(init)
 }
 
 /// Frees an object on the heap. If this object implements Drop, its destructor WILL NOT BE CALLED.
 /// This is up to the caller of deallocate to perform. TODO This may want to be changed.
-pub extern fn deallocate<T: ?Sized>(elem: Unique<T>) {
+pub extern fn deallocate<T: ?Sized>(elem: *mut T) {
     ALLOCATOR.lock().deallocate(elem)
 }
 

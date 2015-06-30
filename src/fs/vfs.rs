@@ -13,7 +13,6 @@ use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc};
 use core::prelude::*;
 use core::atomic::AtomicUsize;
-use core::mem;
 use collections::hashmap::{HashMap, HasKey, KeyIter};
 use collections::dynarray::DynArray;
 use collections::link::{HasDoubleLink, DoubleLink};
@@ -198,12 +197,43 @@ impl Node for VFSNode {
             Err(DirectoryExists)
         } else {
             let parent = VFSParent::Linked(Rc::from_ref(self));
-            let node = try!(VFSNode::new(parent).and_then(Box::new).map(Rc::new));
+            trace!("made parent");
+            //let node = try!(VFSNode::new(parent).and_then(Box::new).map(Rc::new));
+            let node1 = try!(VFSNode::new(parent));
+            trace!("made node1");
+            let node2 = try!(Box::new(node1));
+            trace!("made node2");
+            let node = Rc::new(node2);
+            trace!("made node");
             let entry = VFSEntry::Node { name: name, node: node, link: DoubleLink::new() };
+            trace!("made entry");
             let entry = try!(Box::new(entry));
+            trace!("made dir");
             assert!(state.entries.insert(entry).is_none());
             Ok(())
         }
+    }
+
+    fn remove_file(&self, name: &str) -> KernResult<()> {
+        trace!("removing file: {}", name);
+        let mut state = try!(self.checked_lock_writer());
+        match state.entries.remove(name) {
+            None => Err(NoSuchFile),
+            Some(_) => Ok(())
+        }
+    }
+
+    fn remove_node(&self, name: &str) -> KernResult<()> {
+        trace!("removing node: {}", name);
+        let mut state = try!(self.checked_lock_writer());
+        match state.entries.lookup(name) {
+            None => return Err(NoSuchDirectory),
+            Some(&VFSEntry::File { .. }) => return Err(NoSuchDirectory),
+            Some(&VFSEntry::Node { ref node, .. }) => try!(node.unlink()),
+            Some(&VFSEntry::Mount { .. }) => unimplemented!(),
+        }
+        state.entries.remove(name);
+        Ok(())
     }
 
     fn mount(&self, name: String, fs: Box<FileSystem>) -> KernResult<()> {
@@ -214,6 +244,16 @@ impl Node for VFSNode {
             let entry = VFSEntry::Mount { name: name, fs: fs, link: DoubleLink::new() };
             let entry = try!(Box::new(entry));
             assert!(state.entries.insert(entry).is_none());
+            Ok(())
+        }
+    }
+
+    fn unlink(&self) -> KernResult<()> {
+        let mut state = try!(self.checked_lock_writer());
+        if state.entries.count() != 0 {
+            Err(DirectoryNotEmpty)
+        } else {
+            state.parent = VFSParent::Unlinked;
             Ok(())
         }
     }

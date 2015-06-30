@@ -31,15 +31,21 @@ pub trait Node : HasRc {
 
     fn list<'a>(&'a self) -> KernResult<Box<Iterator<Item=&'a str> + 'a>>;
 
+    fn make_file(&self, file: String) -> KernResult<()>;
+
+    fn make_node(&self, node: String) -> KernResult<()>; 
+    
     fn open_file(&self, file: &str) -> KernResult<Box<File>>;
 
     fn open_node(&self, node: &str) -> KernResult<Rc<Node>>;
 
-    fn make_file(&self, file: String) -> KernResult<()>;
+    fn remove_file(&self, file: &str) -> KernResult<()>;
 
-    fn make_node(&self, node: String) -> KernResult<()>; 
+    fn remove_node(&self, node: &str) -> KernResult<()>;
 
     fn mount(&self, node: String, fs: Box<FileSystem>) -> KernResult<()>;
+
+    fn unlink(&self) -> KernResult<()>;
 
 }
 
@@ -65,7 +71,12 @@ pub struct FileCursor {
 }
 
 impl FileCursor {
-    
+   
+    pub fn count(&self) -> usize {
+        trace!("count {}", self.curdir);
+        self.node.count()
+    }
+
     pub fn list<'a>(&'a self) -> KernResult<Box<Iterator<Item=&'a str> + 'a>> {
         trace!("listing {}", self.curdir);
         self.node.list()
@@ -74,6 +85,11 @@ impl FileCursor {
     pub fn make_node(&self, node: String) -> KernResult<()> {
         trace!("making node {} at {}", node, self.curdir);
         self.node.make_node(node)
+    }
+
+    pub fn remove_node(&self, name: &str) -> KernResult<()> {
+        trace!("removing node {} at {}", name, self.curdir);
+        self.node.remove_node(name)
     }
 
     pub fn cd(&mut self, path: Path) -> KernResult<()> {

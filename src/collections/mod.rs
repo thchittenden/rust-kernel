@@ -1,6 +1,6 @@
 #![crate_name="collections"]
 #![crate_type="rlib"]
-#![feature(no_std,core,filling_drop,core_prelude,core_str_ext,core_intrinsics,const_fn,core_char_ext)]
+#![feature(no_std,core,filling_drop,core_prelude,core_str_ext,core_intrinsics,const_fn,core_char_ext,core_slice_ext)]
 #![no_std]
 //!
 //! This module contains definitions of various collections used in the kernel. 

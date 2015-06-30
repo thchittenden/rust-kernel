@@ -1,6 +1,7 @@
 use core::prelude::*;
 use core::{fmt, str};
 use core::hash::{Hash, Hasher};
+use core::cmp::max;
 use super::vec::Vec;
 use util::KernResult;
 
@@ -95,6 +96,16 @@ impl String {
         }
     }
 
+    pub fn clone(&self) -> KernResult<String> {
+        match self {
+            &StaticString(s) => Ok(StaticString(s)),
+            &DynamicString(ref ds) => {
+                let ds2 = try!(ds.clone());
+                Ok(DynamicString(ds2))
+            }
+        }
+    }
+
 }
 
 impl PartialEq<String> for String {
@@ -145,7 +156,7 @@ impl DynString {
     }
 
     pub fn from_str(s: &str) -> KernResult<DynString> {
-        let mut vec = try!(Vec::new(s.len()));
+        let mut vec = try!(Vec::new(max(s.len(), 16)));
         for byte in s.as_bytes() {
             assert!(vec.push(*byte).is_ok())
         }
@@ -162,8 +173,11 @@ impl DynString {
     pub fn push(&mut self, c: char) -> KernResult<()> {
         try!(self.arr.reserve(c.len_utf8()));
         let last = self.arr.len();
+        unsafe { self.arr.set_len(last + c.len_utf8()) };
         let slice = unsafe { self.arr.as_mut_slice_full() };
-        assert!(c.encode_utf8(&mut slice[last..]).is_some());
+        let slice = &mut slice[last..];
+        assert!(slice.len() >= c.len_utf8());
+        assert!(c.encode_utf8(slice).is_some());
         Ok(())
     }
 
@@ -173,9 +187,7 @@ impl DynString {
             None
         } else {
             let c = self.as_str().char_at_reverse(len);
-            for _ in 0..c.len_utf8() {
-                self.arr.pop();
-            }
+            unsafe { self.arr.set_len(len - c.len_utf8()) };
             Some(c)
         }
     }
@@ -183,6 +195,13 @@ impl DynString {
     pub fn as_str(&self) -> &str {
         // We know this is safe because we only put valid strings into the array.
         unsafe { str::from_utf8_unchecked(self.arr.as_slice()) }
+    }
+
+    pub fn clone(&self) -> KernResult<DynString> {
+        let arr = try!(self.arr.clone());
+        Ok(DynString {
+            arr: arr
+        })
     }
 
 }

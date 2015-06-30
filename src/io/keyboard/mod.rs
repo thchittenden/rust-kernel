@@ -1,10 +1,11 @@
 mod keyhelp;
 mod buf;
 
+use collections::string::String;
 use core::prelude::*;
 use interrupt::{pic, Regs, IRet};
-use util::asm;
 use self::buf::{KeyboardBuffer, KEYBOARD_BUFFER_INIT};
+use util::{asm, KernResult};
 
 const KEYBOARD_PORT: u16 = 0x60;
 static mut KEYBOARD_BUF: KeyboardBuffer = KEYBOARD_BUFFER_INIT;
@@ -30,4 +31,17 @@ pub fn getc() -> char {
             return c;
         }
     }
+}
+
+/// Tries to get a string from the keyboard. Blocks until a newline character is read.
+pub fn getline() -> KernResult<String> {
+    let mut res = String::new();
+    loop {
+        let c = getc();
+        try!(res.push(c));
+        if c == '\n' {
+            break;
+        }   
+    }
+    Ok(res)
 }

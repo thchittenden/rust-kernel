@@ -128,8 +128,12 @@ impl<T: HasDoubleLink<T>> DList<T> {
         self.tail.as_mut().map(|tail| &mut**tail)
     }
 
-    pub fn length(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
 
 }

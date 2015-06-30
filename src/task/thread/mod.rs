@@ -19,7 +19,12 @@ use collections::link::{DoubleLink, HasDoubleLink};
 use util::{KernResult, asm};
 logger_init!(Trace);
 
-const STACK_SIZE: usize = 1017;
+/// There is some "wiggle room" in stack checking which allows the stack to go slightly beyond
+/// whatever stack_bottom is set to. This is a problem if stack_bottom is contained in that area
+/// because it may get overwritten! We thus allocate a small redzone between stack_bottom and the
+/// actual end of the stack.
+const REDZONE_SIZE: usize = 16;
+const STACK_SIZE: usize = 1024;
 const STACK_TOP:  usize = STACK_SIZE - 1;
 const ARG_OFFSET: usize = STACK_SIZE - 2;
 const RET_OFFSET: usize = STACK_SIZE - 4;
@@ -32,7 +37,6 @@ static NEXT_TID: AtomicIsize = ATOMIC_ISIZE_INIT;
 /// The entry point for all new threads. Currently this doesn't do much.
 extern fn thread_entry(thread: &Thread) -> ! {
     trace!("starting thread {}", thread.tid);
-    asm::enable_interrupts(); // TODO temporary!
     thread.run()
 }
 
@@ -58,7 +62,7 @@ impl Thread {
             thread.threadfn = f;
             thread.stack_cur = &thread.stack[ESI_OFFSET] as *const usize as usize;
             thread.stack_top = &thread.stack[STACK_TOP] as *const usize as usize;
-            thread.stack_bottom = &thread.stack[0] as *const usize as usize;
+            thread.stack_bottom = &thread.stack[REDZONE_SIZE] as *const usize as usize;
             thread.stack[ARG_OFFSET] = thread as *const Thread as usize;
             thread.stack[RET_OFFSET] = unsafe { mem::transmute(thread_entry) };
             thread.stack[EBP_OFFSET] = thread.stack_top;
@@ -69,8 +73,7 @@ impl Thread {
     }
 
     pub fn run(&self) -> ! {
-        let f = self.threadfn;
-        f()
+        (self.threadfn)()
     }
 
 }

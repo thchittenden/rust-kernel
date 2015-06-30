@@ -67,18 +67,33 @@ impl<T> Vec<T> {
     }
 
     pub fn reserve(&mut self, count: usize) -> KernResult<()> {
+        assert!(self.cap >= self.len);
         let gap = self.cap - self.len;
         if gap < count {
-            let new_cap = self.cap + gap;
+            let new_cap = self.cap + count - gap;
             self.resize(new_cap)
         } else {
             Ok(())
         }
     }
 
+    /// Sets the length to the given value. 
+    ///
+    /// # Safety
+    ///
+    /// This is unsafe because it will not drop any values that were discarded due to shrinking the
+    /// vector and may allow access to uninitialized memory due to growing the vector.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if we attempt to set the length to a value greater than the capacity.
+    pub unsafe fn set_len(&mut self, len: usize) {
+        assert!(len <= self.cap);
+        self.len = len;
+    }
+
     /// Attempts to push an element onto the queue. If the vector cannot allocate enough space to
     /// grow it returns Err(val), otherwise it returns Ok(())
-    #[must_use]
     pub fn push(&mut self, val: T) -> KernResultEx<(), T> {
         if self.len < self.cap {
             // Have enough space, just perform the write.

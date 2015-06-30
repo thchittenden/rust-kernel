@@ -10,6 +10,7 @@ extern crate io;
 
 use core::prelude::*;
 use core::fmt::{Arguments, Write};
+use core::num::Wrapping;
 use io::console::{Console, Color};
 
 // This is our panic function. It must be declared "extern" or arguments
@@ -78,7 +79,7 @@ pub unsafe fn memset(dst: *mut u8, val: isize, len: usize) {
 #[no_mangle]
 pub unsafe fn memcmp(p1: *const u8, p2: *const u8, len: usize) -> isize {
     for i in 0 .. len as isize {
-        let diff = (*p1.offset(i) - *p2.offset(i)) as i8;
+        let diff = (Wrapping(*p1.offset(i)) - Wrapping(*p2.offset(i))).0 as i8;
         if diff != 0 {
             return diff as isize;
         }

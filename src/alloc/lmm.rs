@@ -11,7 +11,7 @@ use util::align_bits;
 use Allocator;
 use util::KernResult;
 use util::KernError::*;
-logger_init!(Error);
+logger_init!(Trace);
 
 const ALLOC_FLAGS: u32 = 0;
 

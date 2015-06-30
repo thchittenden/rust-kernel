@@ -21,7 +21,11 @@ context_switch:
     // stack overflow detection.
     push %ecx
     call set_tl_desc
-    pop %ecx
+    addl $4, %esp
+    
+    // Reload %fs so the changes take effect.
+    mov $0x28, %si
+    mov %si, %fs
 
     // Swap the stacks.
     mov %esp, STACK_CUR_OFFSET(%eax)
@@ -45,7 +49,11 @@ context_switch_first:
     // stack overflow detection.
     push %ecx
     call set_tl_desc
-    pop %ecx
+    addl $4, %esp
+
+    // Reload %fs so the changes take effect.
+    mov $0x28, %si
+    mov %si, %fs
 
     // Go to the new stack.
     mov STACK_CUR_OFFSET(%ecx), %esp
@@ -61,21 +69,21 @@ context_switch_first:
     ret
 
 set_tl_desc:
-    mov 0x4(%esp), %ecx
+    mov 0x4(%esp), %esi
     
     // Set the first word.
-    shl $16, %ecx
-    orl $0x14, %ecx         // big enough to index stack_bottom
-    mov %ecx, _tl_desc
+    shl $16, %esi
+    orl $0x14, %esi         // big enough to index stack_bottom
+    mov %esi, _tl_desc
 
     // Set the second word.
-    mov 0x4(%esp), %ecx
-    mov %ecx, %ebx
-    andl $0xFF000000, %ecx
-    andl $0x00FF0000, %ebx
-    shrl $16, %ebx
-    orl %ebx, %ecx
-    orl $0x00409300, %ecx
-    mov %ecx, _tl_desc+4
+    mov 0x4(%esp), %esi
+    mov %esi, %edi
+    andl $0xFF000000, %esi
+    andl $0x00FF0000, %edi
+    shrl $16, %edi
+    orl %edi, %esi
+    orl $0x00409300, %esi
+    mov %esi, _tl_desc+4
     
     ret

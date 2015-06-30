@@ -57,6 +57,13 @@ pub fn test() {
         trace!("key: {}, val: {:?}", key, val);
     }
 
+    map.remove(&String::from_str("n1"));
+    trace!("map.count() == {}", map.count());
+    for key in map.iter_keys() {
+        let val = map.lookup(key).unwrap();
+        trace!("key: {}, val: {:?}", key, val);
+    }
+
     trace!("map 2");
     let mut map = HashMap::new().unwrap();
     let n1 = Box::new(Node::new(String::from_str("dev"), 100)).unwrap();
@@ -66,6 +73,32 @@ pub fn test() {
         trace!("key: {}", key);
     }
 
+    trace!("map 3");
+    let mut map = HashMap::new().unwrap();
+    for i in 0 .. 100 {
+        let mut name = String::new();
+        print!(name, "n{}", i);
+        let n = Box::new(Node::new(name, 1000*i+i)).unwrap();
+        map.insert(n);
+    }
+    trace!("count: {}", map.count());
+    for key in map.iter_keys() {
+        let val = map.lookup(key).unwrap();
+        trace!("key: {}, val: {:?}", key, val);
+    }
+    for i in 0 .. 100 {
+        if i == 50 {
+            trace!("iterating at half");
+            for key in map.iter_keys() {
+                let val = map.lookup(key).unwrap();
+                trace!("key: {}, val: {:?}", key, val);
+            }
+        }
+        let mut name = String::new();
+        print!(name, "n{}", i);
+        let res = map.remove(&name).unwrap();
+        trace!("removed {:?}", res);
+    }
 
 
     
