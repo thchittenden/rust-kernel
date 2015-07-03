@@ -15,6 +15,10 @@ impl Path {
         Path { path: s }
     }
 
+    pub fn clone(&self) -> KernResult<Path> {
+        Ok(Path { path: try!(self.path.clone()) })
+    }
+
     pub fn is_absolute(&self) -> bool {
         self.path.as_str().starts_with(PATH_SEP)
     }
@@ -27,24 +31,24 @@ impl Path {
         if other.is_absolute() {
             self.path = other.path;
         } else {
-            if self.is_root() {
+            if self.path.as_str().ends_with(PATH_SEP) {
                 try!(self.path.append(other.path.as_str()));
             } else {
-                // ONLY the root directory has a trailing '/' so add one otherwise..
-                // TODO transactional.
-                try!(self.path.append(PATH_SEP));
-                try!(self.path.append(other.path.as_str()));
+                let mut other_path = String::from_str(PATH_SEP);
+                try!(other_path.append(other.path.as_str()));
+                try!(self.path.append(other_path.as_str()));
             }
         }
         Ok(())
     }
 
     pub fn push_dir(&mut self, dir: &str) -> KernResult<()> {
-        if self.is_root() {
+        if self.path.as_str().ends_with(PATH_SEP) {
             try!(self.path.append(dir));
         } else {
-            try!(self.path.append(PATH_SEP));
-            try!(self.path.append(dir));
+            let mut other_path = String::from_str(PATH_SEP);
+            try!(other_path.append(dir));
+            try!(self.path.append(other_path.as_str()));
         }
         Ok(())
     }

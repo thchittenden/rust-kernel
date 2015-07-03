@@ -139,7 +139,7 @@ impl Node for VFSNode {
     }
 
     fn open_file(&self, file: &str) -> KernResult<Box<File>> {
-        trace!("opening file {}", file);
+        trace!("opening file '{}'", file);
         let state = self.state.lock_reader();
         match state.entries.lookup(file) {
             Some(&VFSEntry::File{ ref file, .. }) => {
@@ -153,7 +153,7 @@ impl Node for VFSNode {
     }
 
     fn open_node(&self, node: &str) -> KernResult<Rc<Node>> {
-        trace!("opening node {}", node);
+        trace!("opening node '{}'", node);
         let state = try!(self.checked_lock_reader());
         if node == PARENT_DIR {
             // The parent directory is contained in the parent field.
@@ -176,7 +176,7 @@ impl Node for VFSNode {
     }
 
     fn make_file(&self, name: String) -> KernResult<()> {
-        trace!("making file {}", name);
+        trace!("making file '{}'", name);
         let mut state = try!(self.checked_lock_writer());
         if state.entries.contains(name.as_str()) {
             Err(FileExists)
@@ -190,32 +190,23 @@ impl Node for VFSNode {
     }
 
     fn make_node(&self, name: String) -> KernResult<()> {
-        trace!("making node {}", name);
+        trace!("making node '{}'", name);
         let mut state = try!(self.checked_lock_writer());
         if state.entries.contains(name.as_str()) {
             trace!("failed, {} already exists", name);
             Err(DirectoryExists)
         } else {
             let parent = VFSParent::Linked(Rc::from_ref(self));
-            trace!("made parent");
-            //let node = try!(VFSNode::new(parent).and_then(Box::new).map(Rc::new));
-            let node1 = try!(VFSNode::new(parent));
-            trace!("made node1");
-            let node2 = try!(Box::new(node1));
-            trace!("made node2");
-            let node = Rc::new(node2);
-            trace!("made node");
+            let node = try!(VFSNode::new(parent).and_then(Box::new).map(Rc::new));
             let entry = VFSEntry::Node { name: name, node: node, link: DoubleLink::new() };
-            trace!("made entry");
             let entry = try!(Box::new(entry));
-            trace!("made dir");
             assert!(state.entries.insert(entry).is_none());
             Ok(())
         }
     }
 
     fn remove_file(&self, name: &str) -> KernResult<()> {
-        trace!("removing file: {}", name);
+        trace!("removing file: '{}'", name);
         let mut state = try!(self.checked_lock_writer());
         match state.entries.remove(name) {
             None => Err(NoSuchFile),

@@ -42,10 +42,16 @@ impl String {
         Ok(())
     }
 
+    pub fn prepend(&mut self, s: &str) -> KernResult<()> {
+        try!(self.make_dynamic());
+        match self {
+            &mut StaticString(_) => unreachable!(),
+            &mut DynamicString(ref mut ds) => ds.prepend(s)
+        }
+    }
+
     pub fn append(&mut self, s: &str) -> KernResult<()> {
-        if self.is_static() {
-            try!(self.make_dynamic())
-        } 
+        try!(self.make_dynamic());
         match self {
             &mut StaticString(_) => unreachable!(),
             &mut DynamicString(ref mut ds) => ds.append(s)
@@ -53,9 +59,7 @@ impl String {
     }
 
     pub fn push(&mut self, c: char) -> KernResult<()> {
-        if self.is_static() {
-            try!(self.make_dynamic())
-        } 
+        try!(self.make_dynamic());
         match self {
             &mut StaticString(_) => unreachable!(),
             &mut DynamicString(ref mut ds) => ds.push(c)
@@ -96,6 +100,10 @@ impl String {
         }
     }
 
+    pub fn ends_with(&self, pat: &str) -> bool {
+        self.as_str().ends_with(pat)
+    }
+
     pub fn clone(&self) -> KernResult<String> {
         match self {
             &StaticString(s) => Ok(StaticString(s)),
@@ -104,6 +112,15 @@ impl String {
                 Ok(DynamicString(ds2))
             }
         }
+    }
+
+    pub fn remove_range(&mut self, start: usize, end: usize) -> KernResult<()> {
+        try!(self.make_dynamic());
+        match self {
+            &mut StaticString(_) => unreachable!(),
+            &mut DynamicString(ref mut ds) => ds.remove_range(start, end),
+        }
+        Ok(())
     }
 
 }
@@ -163,10 +180,44 @@ impl DynString {
         Ok(DynString { arr: vec })
     }
 
-    pub fn append(&mut self, s: &str) -> KernResult<()> {
-        for byte in s.as_bytes() {
-            try!(self.arr.push(*byte))
+    pub fn prepend(&mut self, s: &str) -> KernResult<()> {
+        let last = self.arr.len();
+        try!(self.arr.reserve(s.len()));
+        {
+            let mut slice = unsafe { self.arr.as_mut_slice_full() };
+
+            // Copy the current data to the end of the array.
+            for i in 0..last {
+                slice[s.len() + i] = slice[i];
+            }
+
+            // Copy in the string's bytes.
+            let sbytes = s.as_bytes();
+            for i in 0..s.len() {
+                slice[i] = sbytes[i];
+            }
         }
+
+        // Update the array's length to hold everything.
+        unsafe { self.arr.set_len(last + s.len()) };
+        Ok(())
+    }
+
+    pub fn append(&mut self, s: &str) -> KernResult<()> {
+        let last = self.arr.len();
+        try!(self.arr.reserve(s.len()));
+        {
+            let mut slice = unsafe { self.arr.as_mut_slice_full() };
+            
+            // Copy in the string's bytes.
+            let sbytes = s.as_bytes();
+            for i in 0..s.len() {
+                slice[last + i] = sbytes[i]; 
+            }
+        }
+        
+        // Update the array's length to hold everything.
+        unsafe { self.arr.set_len(last + s.len()) };
         Ok(())
     }
 
@@ -202,6 +253,19 @@ impl DynString {
         Ok(DynString {
             arr: arr
         })
+    }
+
+    pub fn remove_range(&mut self, start: usize, end: usize) {
+        assert!(start <= end);
+        let len = self.arr.len();
+        let rmlen = end - start;
+        {
+            let mut slice = self.arr.as_mut_slice();
+            for i in start..len - end {
+                slice[i] = slice[i+rmlen];
+            }
+        }
+        unsafe { self.arr.set_len(len - rmlen) };
     }
 
 }

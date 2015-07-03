@@ -46,4 +46,19 @@ pub fn test() {
     assert!(z2.pop().unwrap() == 'x');
     assert!(z2.pop().is_none());
     assert!(z2.as_str() == "");
+
+    assert!("" != " ");
+    let x1 = String::new();
+    let x2 = String::from_str("");
+    let mut x3 = String::from_str("");
+    x3.append("").unwrap();
+    assert!(x1 == x2);
+    assert!(x2 == x3);
+    assert!(x1 == x3);
+
+    // Test prepend.
+    let mut y1 = String::from_str("xyz");
+    let y2 = String::from_str("abc");
+    y1.prepend(y2.as_str()).unwrap();
+    assert!(y1.as_str() == "abcxyz");
 }

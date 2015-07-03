@@ -24,7 +24,7 @@ logger_init!(Trace);
 /// because it may get overwritten! We thus allocate a small redzone between stack_bottom and the
 /// actual end of the stack.
 const REDZONE_SIZE: usize = 16;
-const STACK_SIZE: usize = 1024;
+const STACK_SIZE: usize = 2048;
 const STACK_TOP:  usize = STACK_SIZE - 1;
 const ARG_OFFSET: usize = STACK_SIZE - 2;
 const RET_OFFSET: usize = STACK_SIZE - 4;
@@ -37,6 +37,11 @@ static NEXT_TID: AtomicIsize = ATOMIC_ISIZE_INIT;
 /// The entry point for all new threads. Currently this doesn't do much.
 extern fn thread_entry(thread: &Thread) -> ! {
     trace!("starting thread {}", thread.tid);
+
+    // Since we came from a context switch we need to reenable interrupts.
+    asm::enable_interrupts();
+
+    // Run the thread.
     thread.run()
 }
 

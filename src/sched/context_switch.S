@@ -40,6 +40,7 @@ context_switch:
     // Return to the new thread.
     ret
 
+// This is the first context switch performed in the system. There is no "from" TCB. 
 .globl context_switch_first
 context_switch_first:
     // Get the next TCB.

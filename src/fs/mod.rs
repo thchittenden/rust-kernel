@@ -66,7 +66,7 @@ pub trait File {
 }
 
 pub struct FileCursor {
-    curdir: Path, // Probably want to make this a stack of nodes.
+    curdir: Path,
     node: Rc<Node>,
 }
 
@@ -95,16 +95,26 @@ impl FileCursor {
     pub fn cd(&mut self, path: Path) -> KernResult<()> {
         trace!("trying to cd from {} to {}/{}", self.curdir, self.curdir, path);
         let mut cur = self.node.clone();
+        
+        // Get the cursor that points to the new directory.
         for dir in path.dirs() {
             cur = try!(cur.open_node(dir));
-            if dir == PARENT_DIR {
-                // This could be optimized so it can't fail.
-                try!(self.curdir.pop_dir());
-            } else {
-                try!(self.curdir.push_dir(dir));
-            }
-            
         }
+
+        // If that succeeds, construct the path to the new cursor. TODO this sucks that we need to
+        // allocate a new path in order to perform this transactionally. This "canonical" append
+        // should be pushed down into Path (or CanonicalPath) so we can perform it transactionally.
+        let mut new_path = try!(self.curdir.clone());
+        for dir in path.dirs() {
+            if dir == PARENT_DIR {
+                try!(new_path.pop_dir());
+            } else {
+                try!(new_path.push_dir(dir));
+            }
+        }
+         
+        // Now update our state and return success.
+        self.curdir = new_path;
         self.node = cur;
         Ok(())
     }
