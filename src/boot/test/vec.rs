@@ -2,6 +2,7 @@ use collections::vec::Vec;
 use alloc::boxed::Box;
 logger_init!(Trace);
 
+#[inline(never)]
 pub fn test() {
     trace!("\ntesting vec");
     let mut x = Vec::new(4).unwrap();

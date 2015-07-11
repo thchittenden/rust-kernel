@@ -22,6 +22,7 @@ impl fmt::Debug for Baz {
     }
 }
 
+#[inline(never)]
 pub fn test() {
 
     trace!("\ntesting rc");

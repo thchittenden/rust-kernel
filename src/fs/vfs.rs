@@ -10,9 +10,10 @@
 //! empty and thus there will be no backreferences to it when it is removed.
 //!
 use alloc::boxed::Box;
-use alloc::rc::{Rc, HasRc};
+use alloc::rc::{Rc, HasRc, RcAny};
 use core::prelude::*;
 use core::atomic::AtomicUsize;
+use core::any::Any;
 use collections::hashmap::{HashMap, HasKey, KeyIter};
 use collections::dynarray::DynArray;
 use collections::link::{HasDoubleLink, DoubleLink};
@@ -21,7 +22,7 @@ use sync::rwlock::{ReaderGuard, WriterGuard, ReaderGuardMap, RWLock};
 use super::{Node, File, FileSystem};
 use util::KernResult;
 use util::KernError::*;
-use ::PARENT_DIR;
+use super::PARENT_DIR;
 logger_init!(Trace);
 
 /// A virtual file system.
@@ -140,7 +141,7 @@ impl Node for VFSNode {
 
     fn open_file(&self, file: &str) -> KernResult<Box<File>> {
         trace!("opening file '{}'", file);
-        let state = self.state.lock_reader();
+        let state = try!(self.checked_lock_reader());
         match state.entries.lookup(file) {
             Some(&VFSEntry::File{ ref file, .. }) => {
                 let clone = try!(file.clone());  
@@ -150,6 +151,14 @@ impl Node for VFSNode {
             _ => Err(NoSuchFile)
         }
         
+    }
+
+    fn open_object(&self, name: &str) -> KernResult<Rc<RcAny>> {
+        let state = try!(self.checked_lock_reader());
+        match state.entries.lookup(name) {
+            Some(&VFSEntry::Object { ref obj, .. }) => Ok(obj.clone()),
+            _ => Err(NoSuchObject),
+        }
     }
 
     fn open_node(&self, node: &str) -> KernResult<Rc<Node>> {
@@ -189,6 +198,19 @@ impl Node for VFSNode {
         }
     }
 
+    fn make_object(&self, name: String, obj: Box<RcAny>) -> KernResult<()> {
+        let ptr = Rc::new(obj);
+        let mut state = try!(self.checked_lock_writer());
+        if state.entries.contains(name.as_str()) {
+            Err(ObjectExists)
+        } else {
+            let entry = VFSEntry::Object { name: name, obj: ptr, link: DoubleLink::new() };
+            let entry = try!(Box::new(entry));
+            assert!(state.entries.insert(entry).is_none());
+            Ok(())
+        }
+    }
+
     fn make_node(&self, name: String) -> KernResult<()> {
         trace!("making node '{}'", name);
         let mut state = try!(self.checked_lock_writer());
@@ -208,9 +230,24 @@ impl Node for VFSNode {
     fn remove_file(&self, name: &str) -> KernResult<()> {
         trace!("removing file: '{}'", name);
         let mut state = try!(self.checked_lock_writer());
-        match state.entries.remove(name) {
-            None => Err(NoSuchFile),
-            Some(_) => Ok(())
+        match state.entries.lookup(name) {
+            Some(&VFSEntry::File { .. }) => { },
+            _ => return Err(NoSuchFile),
+        }
+        state.entries.remove(name);
+        Ok(())
+    }
+
+    fn remove_object(&self, name: &str) -> KernResult<Rc<RcAny>> {
+        let mut state = try!(self.checked_lock_writer());
+        match state.entries.lookup(name) {
+            Some(&VFSEntry::Object { .. }) => { },
+            _ => return Err(NoSuchObject),
+        }
+        let boxed: Box<VFSEntry> = state.entries.remove(name).unwrap();
+        match boxed.into_inner() {
+            VFSEntry::Object { obj, .. } => Ok(obj),
+            _ => unreachable!()
         }
     }
 
@@ -218,10 +255,9 @@ impl Node for VFSNode {
         trace!("removing node: {}", name);
         let mut state = try!(self.checked_lock_writer());
         match state.entries.lookup(name) {
-            None => return Err(NoSuchDirectory),
-            Some(&VFSEntry::File { .. }) => return Err(NoSuchDirectory),
             Some(&VFSEntry::Node { ref node, .. }) => try!(node.unlink()),
             Some(&VFSEntry::Mount { .. }) => unimplemented!(),
+            _ => return Err(NoSuchDirectory),
         }
         state.entries.remove(name);
         Ok(())
@@ -256,6 +292,7 @@ enum VFSEntry {
     Node { name: String, node: Rc<VFSNode>, link: DoubleLink<VFSEntry> },
     File { name: String, file: VFSFile, link: DoubleLink<VFSEntry> },
     Mount { name: String, fs: Box<FileSystem>, link: DoubleLink<VFSEntry> },
+    Object { name: String, obj: Rc<RcAny>, link: DoubleLink<VFSEntry> },
 }
 
 impl HasKey<str> for VFSEntry {
@@ -264,6 +301,7 @@ impl HasKey<str> for VFSEntry {
             &VFSEntry::Node { ref name, .. } => name.as_str(),
             &VFSEntry::File { ref name, .. } => name.as_str(),
             &VFSEntry::Mount { ref name, .. } => name.as_str(),
+            &VFSEntry::Object { ref name, .. } => name.as_str(),
         }
     }
 }
@@ -274,6 +312,7 @@ impl HasDoubleLink<VFSEntry> for VFSEntry {
             &VFSEntry::Node { ref link, .. } => link,
             &VFSEntry::File { ref link, .. } => link,
             &VFSEntry::Mount { ref link, .. } => link,
+            &VFSEntry::Object { ref link, .. } => link,
         }
     }
 
@@ -282,6 +321,7 @@ impl HasDoubleLink<VFSEntry> for VFSEntry {
             &mut VFSEntry::Node { ref mut link, .. } => link,
             &mut VFSEntry::File { ref mut link, .. } => link,
             &mut VFSEntry::Mount { ref mut link, .. } => link,
+            &mut VFSEntry::Object { ref mut link, .. } => link,
         }
     }
 }

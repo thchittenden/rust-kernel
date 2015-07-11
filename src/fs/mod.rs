@@ -13,13 +13,15 @@ pub mod path;
 pub mod vfs;
 
 use alloc::boxed::Box;
-use alloc::rc::{Rc, HasRc};
+use alloc::rc::{Rc, HasRc, RcAny};
 use core::prelude::*;
+use core::any::Any;
 use util::global::Global;
 use collections::string::String;
-use vfs::VFS;
+use self::vfs::VFS;
 use path::Path;
 use util::KernResult;
+use util::KernError::WrongType;
 logger_init!(Trace);
 
 pub const PATH_SEP: &'static str = "/";
@@ -34,14 +36,20 @@ pub trait Node : HasRc {
     fn make_file(&self, file: String) -> KernResult<()>;
 
     fn make_node(&self, node: String) -> KernResult<()>; 
+
+    fn make_object(&self, name: String, obj: Box<RcAny>) -> KernResult<()>;
     
     fn open_file(&self, file: &str) -> KernResult<Box<File>>;
 
     fn open_node(&self, node: &str) -> KernResult<Rc<Node>>;
 
+    fn open_object(&self, name: &str) -> KernResult<Rc<RcAny>>;
+
     fn remove_file(&self, file: &str) -> KernResult<()>;
 
     fn remove_node(&self, node: &str) -> KernResult<()>;
+
+    fn remove_object(&self, name: &str) -> KernResult<Rc<RcAny>>;
 
     fn mount(&self, node: String, fs: Box<FileSystem>) -> KernResult<()>;
 
@@ -90,6 +98,28 @@ impl FileCursor {
     pub fn remove_node(&self, name: &str) -> KernResult<()> {
         trace!("removing node {} at {}", name, self.curdir);
         self.node.remove_node(name)
+    }
+
+    pub fn make_object<T: Any + HasRc>(&self, name: String, obj: Box<T>) -> KernResult<()> {
+        trace!("making object {} at {}", name, self.curdir);
+
+        self.node.make_object(name, obj)
+    }
+
+    pub fn remove_object(&self, name: &str) -> KernResult<()> {
+        trace!("removing object {} at {}", name, self.curdir);
+        try!(self.node.remove_object(name));
+        Ok(())
+    }
+
+    pub fn open_object<T: Any + HasRc>(&self, name: &str) -> KernResult<Rc<T>> {
+        trace!("opening object {} at {}", name, self.curdir);
+        let obj = try!(self.node.open_object(name));
+        let any = obj.as_any();
+        match any.downcast_ref::<T>() {
+            None => Err(WrongType),
+            Some(obj) => Ok(Rc::from_ref(&obj)),
+        }
     }
 
     pub fn cd(&mut self, path: Path) -> KernResult<()> {

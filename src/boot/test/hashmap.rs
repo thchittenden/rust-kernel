@@ -32,6 +32,7 @@ impl HasKey<String> for Node {
     }
 }
 
+#[inline(never)]
 pub fn test() {
     trace!("\ntesting hashmap");
     let mut map = HashMap::new().unwrap();

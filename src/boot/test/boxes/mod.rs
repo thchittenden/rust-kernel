@@ -21,6 +21,7 @@ struct Nested {
     x: Box<usize>
 }
 
+#[inline(never)]
 pub fn test() {
 
     trace!("\ntesting boxes");

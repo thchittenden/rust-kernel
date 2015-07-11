@@ -19,6 +19,7 @@ impl HasSingleLink<Node> for Node {
     }
 }
 
+#[inline(never)]
 pub fn test() {
     trace!("\ntesting slist");
 

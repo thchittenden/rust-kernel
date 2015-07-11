@@ -21,11 +21,14 @@ macro_rules! err_ex {
 pub enum KernError {
     OutOfMemory,
     NoSuchFile,
+    NoSuchObject,
     NoSuchDirectory,
     FileExists,
+    ObjectExists,
     DirectoryExists,
     DirectoryUnlinked,
     DirectoryNotEmpty,
+    WrongType,
 }
 
 pub struct KernErrorEx<E> {

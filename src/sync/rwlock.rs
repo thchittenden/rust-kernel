@@ -31,6 +31,13 @@ pub struct RWLockState {
 }
 
 impl RWLockState {
+
+    fn is_valid(&self) -> bool {
+        (self.nreaders > 0 && self.nwriters == 0)
+            || (self.nwriters == 1 && self.nreaders == 0)
+            || (self.nwriters == 0 && self.nreaders == 0)
+    }
+
     fn new() -> RWLockState {
         RWLockState { 
             nreaders: 0,
@@ -61,12 +68,14 @@ impl<T> RWLock<T> {
 
     pub fn lock_reader(&self) -> ReaderGuard<T> {
         let mut state = self.state.lock();
+        assert!(state.is_valid());
         state.nreaders_waiting += 1;
         while state.nwriters > 0 {
             state = self.reader_cond.wait(state)
         }
         state.nreaders_waiting -= 1;
         state.nreaders += 1;
+        assert!(state.is_valid());
         ReaderGuard {
             dropped: false,
             lock: &self,
@@ -76,12 +85,14 @@ impl<T> RWLock<T> {
 
     pub fn lock_writer(&self) -> WriterGuard<T> {
         let mut state = self.state.lock();
+        assert!(state.is_valid());
         state.nwriters_waiting += 1;
-        while state.nreaders > 0 && state.nwriters > 0 {
+        while state.nreaders > 0 || state.nwriters > 0 {
             state = self.writer_cond.wait(state)
         }
         state.nwriters_waiting -= 1;
         state.nwriters += 1;
+        assert!(state.is_valid());
         WriterGuard {
             lock: &self,
             data: &self.data,
@@ -90,9 +101,10 @@ impl<T> RWLock<T> {
 
     fn unlock_reader(&self) {
         let mut state = self.state.lock();
+        assert!(state.is_valid());
         assert!(state.nreaders > 0);
-        assert!(state.nwriters == 0);
         state.nreaders -= 1;
+        assert!(state.is_valid());
         if state.nreaders == 0 {
             if state.nwriters_waiting > 0 {
                 self.writer_cond.signal()
@@ -102,9 +114,10 @@ impl<T> RWLock<T> {
 
     fn unlock_writer(&self) {
         let mut state = self.state.lock();
+        assert!(state.is_valid());
         assert!(state.nwriters == 1);
-        assert!(state.nreaders == 0);
         state.nwriters -= 1;
+        assert!(state.is_valid());
         if state.nreaders_waiting > 0 {
             self.reader_cond.broadcast()
         } else if state.nwriters_waiting > 0 {

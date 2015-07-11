@@ -6,8 +6,7 @@
 use core::prelude::*;
 use core::hash::{self, Hash};
 use core::cmp::Ordering;
-use core::mem;
-use core::fmt;
+use core::{mem, ptr, fmt};
 use core::ops::{Deref, DerefMut, CoerceUnsized};
 use core::marker::Unsize;
 use core::intrinsics::drop_in_place;
@@ -29,7 +28,18 @@ impl<T> Box<T> {
     pub fn emplace<F>(init: F) -> KernResult<Box<T>> where F: Fn(&mut T) {
         ::allocate_emplace(init).map(Box)
     }
+   
+    /// Extracts the contents of the box.
+    pub fn into_inner(self) -> T {
+        let res = unsafe { ptr::read(self.0) };
 
+        // We don't want to drop the contents of the box since we're moving it onto the stack so
+        // just deallocate and forget it.
+        ::deallocate(self.0);
+        mem::forget(self);
+
+        res
+    }
 }
 
 impl<T: ?Sized> Box<T> {

@@ -22,6 +22,7 @@ impl HasDoubleLink<X> for X {
     fn dlink_mut(&mut self) -> &mut DoubleLink<X> { &mut self.node }
 }
 
+#[inline(never)]
 pub fn test() {
     trace!("\ntesting map");
     let mut map: HashMap<usize, X> = HashMap::new().unwrap();

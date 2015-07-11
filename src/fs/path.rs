@@ -2,7 +2,7 @@ use core::prelude::*;
 use core::{str, mem, fmt};
 use collections::string::String;
 use util::KernResult;
-use ::PATH_SEP;
+use super::PATH_SEP;
 
 #[derive(Debug)]
 pub struct Path {

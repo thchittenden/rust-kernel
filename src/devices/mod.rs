@@ -42,8 +42,7 @@ pub trait Driver {
     fn get_devices(&self) -> Option<Vec<Box<Device>>>;
 
     /// Returns the class of the devices this driver supports.
-    fn get_device_class(&self) -> Option<DeviceClass>;
-    fn borrow_device_class(&self) -> Option<&DeviceClass>;
+    fn get_device_class(&self) -> Option<&DeviceClass>;
 
     /// Tries to create a new device from the parent device that exposed a device class that this
     /// driver supports.
@@ -52,7 +51,7 @@ pub trait Driver {
 
 impl HasKey<DeviceClass> for Linked<Driver> {
     fn get_key(&self) -> &DeviceClass {
-        self.borrow_device_class().unwrap()
+        self.get_device_class().unwrap()
     }
 }
 
@@ -63,8 +62,7 @@ pub trait Device : HasRc {
     fn get_name(&self) -> &str;
 
     /// Returns the class of this device.
-    fn get_class(&self) -> DeviceClass;
-    fn borrow_class(&self) -> &DeviceClass;
+    fn get_class(&self) -> &DeviceClass;
 
     /// Attempts to convert a device to a DeviceBus if possible. This allows us to enumerate all
     /// connected devices during driver initialization. It would be great if there were a more
@@ -75,7 +73,7 @@ pub trait Device : HasRc {
 
 impl HasKey<DeviceClass> for Linked<Vec<Rc<Device>>> {
     fn get_key(&self) -> &DeviceClass {
-        (*self)[0].borrow_class()
+        (*self)[0].get_class()
     }
 }
 
@@ -117,16 +115,16 @@ impl DeviceManager {
         });
 
         // If the driver supports a class of device, insert it into the driver map.
-        driver.get_device_class().map(|class| {
+        driver.get_device_class().map(|class| *class).map(move |class| {
 
             // This sucks! Since we can't mutably borrow both self.devices_map and call
             // self.register_device at the same time, we have to do this horrible thing and
             // continuously lookup the value so we can release the mutable borrow on
             // self.devices_class_map. Luckily this shouldn't run often!
-            let count = self.devices_map.lookup(&class).map(|link| (*link).len()).unwrap_or(0);
+            let count = self.devices_map.lookup(&class).map(|link| link.len()).unwrap_or(0);
             for i in 0 .. count {
                 // Get a reference to the ref-counted device.
-                let dev: Rc<Device> = self.devices_map.lookup(&class).unwrap().index(i).clone();
+                let dev = self.devices_map.lookup(&class).unwrap().index(i).clone();
 
                 // Use the driver to try to create a new device and register it.
                 driver.create_device(dev).map(|dev| self.register_device(dev));
@@ -140,7 +138,7 @@ impl DeviceManager {
     pub fn register_device(&mut self, device: Box<Device>) {
         info!("registering device {}", device.get_name());
 
-        let class = device.get_class();
+        let class = *device.get_class();
         
         // Insert the device into the devices_class_map and the devices_id_map.
         let rc = Rc::new(device);

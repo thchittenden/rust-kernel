@@ -1,6 +1,7 @@
 use collections::string::String;
 logger_init!(Trace);
 
+#[inline(never)]
 pub fn test() {
     trace!("\ntesting string");
 
