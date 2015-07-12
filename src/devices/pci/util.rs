@@ -25,6 +25,12 @@ pub const BUS_MAX: usize = 256;
 pub const DEV_MAX: usize = 32;
 pub const FUN_MAX: usize = 8;
 
+// Until mem::size_of is const, this is magic. These are not byte counts but number of u32's.
+pub const HEADER_SIZE: usize = 4;
+pub const CONFIG_V0_SIZE: usize = 16;
+pub const CONFIG_V1_SIZE: usize = 16;
+pub const CONFIG_V2_SIZE: usize = 18;
+
 #[derive(Debug)]
 #[repr(C, packed)]
 pub struct Header {
@@ -38,19 +44,114 @@ pub struct Header {
     pub class: u8,
     pub cache_line_size: u8,
     pub latency_timer: u8,
-    pub header_type: u8,
+    pub header_type: HeaderType,
     pub bist: u8
 }
 
-impl Header {
-    pub fn new (addr: PCIAddress) -> Header {
-        let mut raw: [u32; 4] = [0; 4];
-        for i in 0 .. 4 {
-            raw[i] = read_dword(addr, 4*i as u8);
+pub enum DeviceConfig {
+    V0(ConfigV0),
+    V1(ConfigV1),
+    V2(ConfigV2),
+}
+
+impl DeviceConfig {
+    pub fn get_header(&self) -> &Header {
+        match self {
+            &DeviceConfig::V0(ref cfg) => &cfg.hdr,
+            &DeviceConfig::V1(ref cfg) => &cfg.hdr,
+            &DeviceConfig::V2(ref cfg) => &cfg.hdr,
         }
-        unsafe { mem::transmute(raw) }
     }
 }
+
+/// The configuration area when the header type is 0x00. This corresponds to a PCI device.
+#[derive(Debug)]
+#[repr(C, packed)]
+pub struct ConfigV0 {
+    pub hdr: Header,
+    pub bar0: u32,
+    pub bar1: u32,
+    pub bar2: u32,
+    pub bar3: u32,
+    pub bar4: u32,
+    pub bar5: u32,
+    pub cardbus_cis_ptr: u32,
+    pub subsys_vid: u16,
+    pub subsys_pid: u16,
+    pub exrom_bar: u32,
+    pub capabilities: u8,
+    reserved0: u8,
+    reserved1: u16,
+    reserved2: u32,
+    pub int_line: u8, // Which PIC IRQ the device uses.
+    pub int_pin: u8,  // Which APIC line the devices uses.
+    pub min_grant: u8, 
+    pub max_lat: u8,
+}
+
+#[repr(C, packed)]
+pub struct ConfigV1 {
+    pub hdr: Header,
+    pub bar0: u32,
+    pub bar1: u32,
+    pub primary_bus_number: u8,
+    pub secondary_bus_number: u8,
+    pub subordinate_bus_number: u8,
+    pub secondary_lat_timer: u8,
+    pub io_base: u8,
+    pub io_limit: u8,
+    pub secondary_status: u16,
+    pub mem_base: u16,
+    pub mem_limit: u16,
+    pub prefetch_base: u16,
+    pub prefetch_limit: u16,
+    pub prefetch_base_upper: u32,
+    pub prefetch_limit_upper: u32,
+    pub io_base_upper: u16,
+    pub io_limit_upper: u16,
+    pub capabilities: u8,
+    reserved0: u8,
+    reserved1: u16,
+    pub exrom_bar: u32,
+    pub int_line: u8,
+    pub int_pin: u8,
+    pub bridge_ctl: u16,
+}
+
+#[repr(C, packed)]
+pub struct ConfigV2 {
+    pub hdr: Header,
+    pub cardbus_bar: u32,
+    pub capabilities: u8,
+    reserved0: u8,
+    pub secondary_status: u16,
+    pub pci_bus_num: u8,
+    pub cardbus_bus_num: u8,
+    pub subordinate_bus_num: u8,
+    pub cardbus_lat_timer: u8,
+    pub mem_base0: u32,
+    pub mem_limit0: u32,
+    pub mem_base1: u32,
+    pub mem_limit1: u32,
+    pub io_base0: u32,
+    pub io_limit0: u32,
+    pub io_base1: u32,
+    pub io_limit1: u32,
+    pub int_line: u8,
+    pub int_pin: u8,
+    pub bridge_ctl: u16,
+    pub subsys_dev_id: u16,
+    pub subsis_ven_id: u16,
+    pub legacy_base: u32
+}
+
+bitflags! {
+    #[derive(Debug)]
+    flags HeaderType: u8 {
+        const MULTIFUNCTION = 0x80,
+        const TYPE          = 0x03,
+    }
+}   
 
 bitflags! {
     flags ConfigAddress: u32 {
@@ -96,34 +197,6 @@ impl PCIAddress {
 impl fmt::Debug for PCIAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}:{}:{})", self.bus, self.device, self.function)
-    }
-}
-
-/// Reads a double-word from the PCI configuration space for a given device.
-pub fn read_dword(addr: PCIAddress, offset: u8) -> u32 {
-    let addr = addr.get_config_address(offset);
-    asm::outb32(CONFIG_ADDRESS, addr.bits);
-    asm::inb32(CONFIG_DATA)
-}
-
-/// Reads a word from the PCI configuration space for a given device.
-pub fn read_word(addr: PCIAddress, offset: u8) -> u16 {
-    assert!(is_aligned!(offset, 2));
-    let dword = read_dword(addr, align!(offset, 4));
-    if is_aligned!(offset, 4) {
-        dword as u16
-    } else {
-        (dword >> 16) as u16
-    }
-}
-
-/// Reads a byte from the PCI configuration space for a given device.
-pub fn read_byte(addr: PCIAddress, offset: u8) -> u8 {
-    let word = read_word(addr, align!(offset, 2));
-    if is_aligned!(offset, 2) {
-        word as u8
-    } else {
-        (word >> 8) as u8
     }
 }
 

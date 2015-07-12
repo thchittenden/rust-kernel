@@ -27,6 +27,7 @@
 extern crate alloc;
 extern crate collections;
 extern crate fs;
+extern crate mutex;
 
 mod pci;
 

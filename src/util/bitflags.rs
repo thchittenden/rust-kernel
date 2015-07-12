@@ -251,6 +251,26 @@ macro_rules! bitflags {
                 self.remove(mask);
                 self.bits |= val;
             }
+
+            /// Extracts the bits of a mask.
+            #[inline]
+            pub fn getmask(&self, mask: $BitFlags) -> $T {
+                assert!(mask.is_valid_mask());
+
+                // Extract the value from the mask.
+                let val = self.bits & mask.bits;
+
+                // Get the lowest bit set in the mask. Dividing the value by this will shift it
+                // into the correct place.
+                let low = (!mask.bits + 1) & mask.bits;
+                val / low
+            }
+
+            /// Extracts the bits of a mask but does not shift it.
+            pub fn getmask_inplace(&self, mask: $BitFlags) -> $T {
+                assert!(mask.is_valid_mask());
+                self.bits & mask.bits
+            }
         }
 
         impl ::core::ops::BitOr for $BitFlags {

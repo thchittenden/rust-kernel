@@ -1,30 +1,50 @@
-use alloc::rc::HasRc;
+use alloc::rc::{Rc, HasRc};
 use core::atomic::AtomicUsize;
 use core::prelude::*;
 use core::fmt::Write;
 use collections::string::String;
-use super::util::{Header, PCIAddress};
+use super::util::{Header, DeviceConfig, PCIAddress};
+use super::bus::PCIBus;
 use util::KernResult;
 use ::{Device, DeviceBus, DeviceClass};
 
 pub struct PCIDevice {
     rc: AtomicUsize,
     name: String,
+    bus: Rc<PCIBus>,
     address: PCIAddress,
-    class: DeviceClass
+    class: DeviceClass,
+    config: DeviceConfig,
 }
 
 impl PCIDevice {
-    pub fn new(addr: PCIAddress, header: Header) -> KernResult<PCIDevice> {
+    pub fn new(addr: PCIAddress, bus: Rc<PCIBus>) -> KernResult<PCIDevice> {
+
+        // Construct the name of the device.
         let mut name = String::new();
         try!(write!(name, "pci{:02x}:{:02x}:{:02x}", addr.bus, addr.device, addr.function));
+
+        // Extract the device configuration.
+        let config = bus.get_config(addr);
+        let class = DeviceClass::PCI { 
+            class: config.get_header().class,
+            subclass: config.get_header().subclass,
+        };
+
         Ok(PCIDevice {
             rc: AtomicUsize::new(0),
             name: name,
+            bus: bus,
             address: addr,
-            class: DeviceClass::PCI { class: header.class, subclass: header.subclass },
+            class: class,
+            config: config,
         })
     }
+
+    pub fn get_config(&self) -> &DeviceConfig {
+        &self.config
+    }
+
 }
 
 impl HasRc for PCIDevice {

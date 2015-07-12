@@ -11,8 +11,11 @@ use collections::link::{DoubleLink};
 use collections::vec::Vec;
 use util::{asm, KernResult};
 use self::bus::PCIBus;
+use self::util::{CONFIG_ADDRESS, CONFIG_DATA};
 use super::{Driver, Device, DeviceClass, DeviceManager};
 logger_init!(Trace);
+
+
 
 struct PCIDriver {
     link: DoubleLink<Driver + 'static>,
@@ -29,7 +32,7 @@ impl PCIDriver {
 impl Driver for PCIDriver {
     fn get_name(&self) -> &str { "pcidriver" }
     fn get_device(&self) -> KernResult<Option<Box<Device>>> { 
-        let dev = try!(Box::new(PCIBus::new()));
+        let dev = try!(Box::new(PCIBus::new(CONFIG_ADDRESS, CONFIG_DATA)));
         Ok(Some(dev))
     }
     fn get_device_class(&self) -> Option<&DeviceClass> { None }
