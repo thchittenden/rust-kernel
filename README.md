@@ -2,21 +2,35 @@
  
 This is an implementation of an x86 multi-threading kernel written in Rust.
 
+The kernel currently supports kernel level threads, a virtual file system 
+(inspired by Linux) and a primitive driver framework (inspired by Windows).
+
+Todo:
+- [ ] IDE driver.
+- [ ] ELF parser.
+- [ ] User space loader.
+- [ ] System calls.
+  - [ ] Process lifetime (fork/exec/wait/vanish).
+  - [ ] Scheduling (yield/deschedule/make_runnable/sleep).
+  - [ ] Memory management (mmap/munmap).
+  - [ ] IPC (???).
+- [ ] Safety improvements (remove unwraps, etc).
+- [ ] Dynamic loading, kernel modules.
+
 ## Building
 
-The kernel must be built by the Rust 1.0.0 compiler built using the nightly
-configuration in order to support unstable features (such as core). The build 
-will probably panic if using any other compiler because it tries to link 
-against the precompiled core library in lib/ that was built with the 1.0.0
-compiler.
+The kernel must be built by a post 1.1.0 Rust compiler built using the nightly
+configuration in order to support unstable features and the `drop_in_place` 
+function. 
+
+The build links against a pre-compiled version of libcore in the `lib` 
+directory. If the version of the compiler differs from that used to compile
+libcore, it will probably panic. If that happens, recompile libcore and replace
+the version in lib/. 
 
 Obviously this is suboptimal and eventually building libcore should be
 integrated into the build process so that this can be built with any Rust
 compiler supporting unstable features.
-
-If you already have your own Rust nightly compiler, you can replace
-lib/libcore.rlib with a version you built yourself using the same flags as
-in the Makefile.
 
 ## Running
 
