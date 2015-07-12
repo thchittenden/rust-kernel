@@ -29,11 +29,18 @@ pub enum KernError {
     DirectoryUnlinked,
     DirectoryNotEmpty,
     WrongType,
+    FormatError,
 }
 
 pub struct KernErrorEx<E> {
     pub err: KernError,
     pub ex: E
+}
+
+impl From<fmt::Error> for KernError {
+    fn from(_: fmt::Error) -> KernError {
+        KernError::FormatError
+    }
 }
 
 impl From<KernError> for fmt::Error {

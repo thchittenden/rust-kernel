@@ -19,9 +19,9 @@ use core::any::Any;
 use util::global::Global;
 use collections::string::String;
 use self::vfs::VFS;
-use path::Path;
 use util::KernResult;
 use util::KernError::WrongType;
+pub use path::Path;
 logger_init!(Trace);
 
 pub const PATH_SEP: &'static str = "/";
@@ -37,7 +37,7 @@ pub trait Node : HasRc {
 
     fn make_node(&self, node: String) -> KernResult<()>; 
 
-    fn make_object(&self, name: String, obj: Box<RcAny>) -> KernResult<()>;
+    fn make_object(&self, name: String, obj: Rc<RcAny>) -> KernResult<()>;
     
     fn open_file(&self, file: &str) -> KernResult<Box<File>>;
 
@@ -79,7 +79,14 @@ pub struct FileCursor {
 }
 
 impl FileCursor {
-   
+  
+    pub fn clone(&self) -> KernResult<FileCursor> {
+        Ok(FileCursor {
+            curdir: try!(self.curdir.clone()),
+            node: self.node.clone(),
+        })
+    }
+
     pub fn count(&self) -> usize {
         trace!("count {}", self.curdir);
         self.node.count()
@@ -100,9 +107,8 @@ impl FileCursor {
         self.node.remove_node(name)
     }
 
-    pub fn make_object<T: Any + HasRc>(&self, name: String, obj: Box<T>) -> KernResult<()> {
+    pub fn make_object<T: Any + HasRc>(&self, name: String, obj: Rc<T>) -> KernResult<()> {
         trace!("making object {} at {}", name, self.curdir);
-
         self.node.make_object(name, obj)
     }
 

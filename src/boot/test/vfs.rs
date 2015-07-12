@@ -1,10 +1,8 @@
 use core::prelude::*;
 use core::atomic::AtomicUsize;
-use core::any::Any;
 use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc};
 use fs::*;
-use fs::path::Path;
 use collections::string::String;
 use io::keyboard;
 use io::console::CON;
@@ -54,6 +52,7 @@ impl HasRc for Y {
 pub fn test() {
 
     let mut cursor = root_cursor();
+    let count = cursor.count();
     {
         trace!("ls /");
         let mut iter = cursor.list().unwrap();
@@ -107,7 +106,7 @@ pub fn test() {
 
     // Test again. Scoped so we drop the reader lock.
     {
-        assert!(cursor.count() == 1);
+        assert!(cursor.count() == count);
         let mut iter = cursor.list().unwrap();
         while let Some(s) = iter.next() {
             trace!("dir: {}", s);
@@ -125,10 +124,10 @@ pub fn test() {
     }
 
     trace!("testing objects");
-    let s1 = Box::new(S::new(4)).unwrap();
-    let s2 = Box::new(S::new(3)).unwrap();
-    let y1 = Box::new(Y::new("blah")).unwrap();
-    let y2 = Box::new(Y::new("barz")).unwrap();
+    let s1 = Rc::new(Box::new(S::new(4)).unwrap());
+    let s2 = Rc::new(Box::new(S::new(3)).unwrap());
+    let y1 = Rc::new(Box::new(Y::new("blah")).unwrap());
+    let y2 = Rc::new(Box::new(Y::new("barz")).unwrap());
     cursor.make_object(String::from_str("obj1"), s1).unwrap();
     cursor.make_object(String::from_str("obj2"), s2).unwrap();
     cursor.make_object(String::from_str("obj3"), y1).unwrap();

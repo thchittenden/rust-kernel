@@ -24,13 +24,6 @@ impl String {
         StaticString(s)
     }
 
-    fn is_static(&self) -> bool {
-        match self {
-            &StaticString(_) => true,
-            &DynamicString(_) => false,
-        }
-    }
-
     fn make_dynamic(&mut self) -> KernResult<()> {
         *self = match self {
             &mut DynamicString(_) => return Ok(()),

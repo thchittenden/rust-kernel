@@ -15,6 +15,10 @@ impl Path {
         Path { path: s }
     }
 
+    pub fn from_str(s: &'static str) -> Path {
+        Path::new(String::from_str(s))
+    }
+
     pub fn clone(&self) -> KernResult<Path> {
         Ok(Path { path: try!(self.path.clone()) })
     }

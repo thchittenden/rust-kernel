@@ -13,7 +13,6 @@ use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc, RcAny};
 use core::prelude::*;
 use core::atomic::AtomicUsize;
-use core::any::Any;
 use collections::hashmap::{HashMap, HasKey, KeyIter};
 use collections::dynarray::DynArray;
 use collections::link::{HasDoubleLink, DoubleLink};
@@ -198,13 +197,12 @@ impl Node for VFSNode {
         }
     }
 
-    fn make_object(&self, name: String, obj: Box<RcAny>) -> KernResult<()> {
-        let ptr = Rc::new(obj);
+    fn make_object(&self, name: String, obj: Rc<RcAny>) -> KernResult<()> {
         let mut state = try!(self.checked_lock_writer());
         if state.entries.contains(name.as_str()) {
             Err(ObjectExists)
         } else {
-            let entry = VFSEntry::Object { name: name, obj: ptr, link: DoubleLink::new() };
+            let entry = VFSEntry::Object { name: name, obj: obj, link: DoubleLink::new() };
             let entry = try!(Box::new(entry));
             assert!(state.entries.insert(entry).is_none());
             Ok(())
