@@ -29,6 +29,7 @@ extern crate collections;
 extern crate fs;
 extern crate mutex;
 
+mod ide;
 mod pci;
 
 use alloc::boxed::Box;
@@ -36,6 +37,7 @@ use alloc::rc::{Rc, HasRc};
 use core::atomic::AtomicUsize;
 use core::prelude::*;
 use core::ops::Index;
+use core::any::Any;
 use collections::link::{DoubleLink, HasDoubleLink};
 use collections::linked::Linked;
 use collections::hashmap::{HasKey, HashMap};
@@ -59,14 +61,14 @@ pub trait Driver {
     fn get_name(&self) -> &str;
 
     /// Returns a device that this driver supports.
-    fn get_device(&self) -> KernResult<Option<Box<Device>>>;
+    fn get_device(&self) -> Option<KernResult<Box<Device>>>;
 
     /// Returns the class of the devices this driver supports.
     fn get_device_class(&self) -> Option<&DeviceClass>;
 
     /// Tries to create a new device from the parent device that exposed a device class that this
     /// driver supports.
-    fn create_device(&self, parent: Rc<Device>) -> KernResult<Option<Box<Device>>>;
+    fn create_device(&self, parent: Rc<Device>) -> Option<KernResult<Box<Device>>>;
 
     /// Helper methods to allow the Driver to implement HasDoubleLink<Driver>.
     fn _dlink(&self) -> &DoubleLink<Driver + 'static>;
@@ -102,6 +104,10 @@ pub trait Device : HasRc {
     /// generic way to do this but I don't there is since generic types make traits not
     /// object-safe.
     fn downcast_bus(&self) -> Option<&DeviceBus>;
+
+    /// Converts this object to an Any. This is useful if we only have a reference to the trait
+    /// object but we want to perform downcasts to concrete types.
+    fn as_any(&self) -> &Any;
 }
 
 impl HasKey<DeviceClass> for Linked<Vec<Rc<Device>>> {
@@ -171,7 +177,7 @@ impl DeviceManager {
 
 
         // Try to get any devices the driver supports.
-        if let Ok(Some(dev)) = driver.get_device() {
+        if let Some(Ok(dev)) = driver.get_device() {
             self.register_device(dev).unwrap();
         }
         
@@ -188,7 +194,7 @@ impl DeviceManager {
                 let dev = self.devices_map.lookup(&class).unwrap().index(i).clone();
 
                 // Use the driver to try to create a new device and register it.
-                if let Ok(Some(dev)) = driver.create_device(dev) {
+                if let Some(Ok(dev)) = driver.create_device(dev) {
                     self.register_device(dev).unwrap();
                 }
             }
@@ -248,6 +254,7 @@ pub fn init() {
     // Create the device manager and begin enumeration.
     let mut ctx = DeviceManager::new(root).unwrap();
     pci::init(&mut ctx);
+    //ide::init(&mut ctx); // not yet implemented.
     
     // Initialize the global context.
     CTX.init(ctx);

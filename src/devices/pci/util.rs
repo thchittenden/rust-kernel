@@ -1,7 +1,6 @@
 use core::prelude::*;
 use core::{fmt, mem};
 use util::asm;
-logger_init!(Trace);
 
 pub const CONFIG_ADDRESS: u16 = 0xCF8;
 pub const CONFIG_DATA: u16 = 0xCFC;

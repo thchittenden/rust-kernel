@@ -2,8 +2,9 @@ use alloc::rc::{Rc, HasRc};
 use core::atomic::AtomicUsize;
 use core::prelude::*;
 use core::fmt::Write;
+use core::any::Any;
 use collections::string::String;
-use super::util::{Header, DeviceConfig, PCIAddress};
+use super::util::{DeviceConfig, PCIAddress};
 use super::bus::PCIBus;
 use util::KernResult;
 use ::{Device, DeviceBus, DeviceClass};
@@ -62,5 +63,8 @@ impl Device for PCIDevice {
     }
     fn downcast_bus(&self) -> Option<&DeviceBus> {
         None
+    }
+    fn as_any(&self) -> &Any {
+        self
     }
 }

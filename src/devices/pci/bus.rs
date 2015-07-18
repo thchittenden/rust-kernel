@@ -3,12 +3,12 @@ use alloc::rc::{Rc, HasRc};
 use core::atomic::AtomicUsize;
 use core::prelude::*;
 use core::mem;
+use core::any::Any;
 use ::{Device, DeviceBus, DeviceClass, DeviceManager};
 use super::util::*;
 use super::device::PCIDevice;
 use mutex::Mutex;
 use util::asm;
-logger_init!(Trace);
 
 struct BusIter<'a> {
     parent: &'a PCIBus,
@@ -162,6 +162,9 @@ impl Device for PCIBus {
     fn downcast_bus(&self) -> Option<&DeviceBus> {
         Some(self)
     }
+    fn as_any(&self) -> &Any {
+        self
+    }
 }
 
 impl DeviceBus for PCIBus {
@@ -169,7 +172,7 @@ impl DeviceBus for PCIBus {
         let iter = BusIter::new(self);
         for dev in iter {
             let boxed = Box::new(dev).unwrap();
-            ctx.register_device(boxed);
+            ctx.register_device(boxed).unwrap();
         }
     }
 }
