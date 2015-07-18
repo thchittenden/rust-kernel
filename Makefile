@@ -60,11 +60,10 @@ $(BINDIR)/$(TARGET): $(OBJ_FILES) $(RAMDISK) $(RAMDISK_DIR)
 	$(LD) $(LDFLAGS) -o $@ --start-group $(call reverse,$^) $(LIBDIR)/libcore.rlib --end-group
 	@-objdump -d $(BINDIR)/$(TARGET) | ./checkstack.py 2048
 
+# The ramdisk is might by a subdirectory make file.
+$(RAMDISK_DIR):
 $(RAMDISK): 
 	$(MAKE) -C $(USRDIR)
-
-$(RAMDISK_DIR):
-	$(MAKE) -C $(USRDIR) 
 
 # We first check if compilation succeeds before we emit the dep-info because otherwise the 
 # dependency file will be updated even if compilation fails and Make will try to build twice which

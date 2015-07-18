@@ -5,6 +5,7 @@ BINDIR := bin
 INCDIR := inc
 RTDIR := rt
 PROGSDIR := progs
+FILESDIR := files
 
 # Program config.
 AS := gcc
@@ -23,9 +24,12 @@ PROG_SRCS := $(shell find $(SRCDIR)/$(PROGSDIR) -name "*.c")
 PROG_OBJS := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(PROG_SRCS))
 PROG_BINS := $(patsubst $(OBJDIR)/%.o,$(OBJDIR)/%,$(PROG_OBJS))
 
+EXTRA_FILES := $(shell find $(SRCDIR)/$(FILESDIR) -type f)
+EXTRA_FILES_OBJS := $(patsubst $(SRCDIR)/%, $(OBJDIR)/%.o, $(EXTRA_FILES))
+
 RAMDISK_DIR_BIN := $(BINDIR)/ramdisk_dir.bin
 RAMDISK_DIR := $(BINDIR)/ramdisk_dir
-RAMDISK_FILES := $(patsubst %,%.bin.o,$(PROG_BINS))
+RAMDISK_FILES := $(patsubst %,%.bin.o,$(PROG_BINS)) $(EXTRA_FILES_OBJS)
 RAMDISK := $(BINDIR)/ramdisk.bin
 
 all: $(RAMDISK) $(RAMDISK_DIR_BIN)
@@ -41,6 +45,10 @@ $(RAMDISK_DIR_BIN): $(RAMDISK_DIR)
 $(RAMDISK_DIR): $(RAMDISK)
 	@mkdir -p $(@D)
 	readelf -W -a $^ | ./mkdir.py > $@
+
+$(EXTRA_FILES_OBJS): $(OBJDIR)/%.o: $(SRCDIR)/%
+	@mkdir -p $(@D)
+	objcopy -I binary -O elf32-i386 -B i386 --rename-section .data=.ramdisk $^ $@
 
 $(OBJDIR)/$(PROGSDIR)/%.bin.o: $(OBJDIR)/$(PROGSDIR)/%
 	@mkdir -p $(@D)
