@@ -261,11 +261,12 @@ impl Node for VFSNode {
         Ok(())
     }
 
-    fn mount(&self, name: String, fs: Box<FileSystem>) -> KernResult<()> {
+    fn mount(&self, name: String, mut fs: Box<FileSystem>) -> KernResult<()> {
         let mut state = try!(self.checked_lock_writer());
         if state.entries.contains(name.as_str()) {
             Err(DirectoryExists)
         } else {
+            fs.set_parent(Some(Rc::from_ref(self)));
             let entry = VFSEntry::Mount { name: name, fs: fs, link: DoubleLink::new() };
             let entry = try!(Box::new(entry));
             assert!(state.entries.insert(entry).is_none());

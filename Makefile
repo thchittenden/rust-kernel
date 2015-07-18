@@ -8,8 +8,12 @@ BINDIR := bin
 IMGDIR := img
 INCDIR := inc
 DOCDIR := doc
+USRDIR := usr
 TARGETSPEC := target
 LINKERSCRIPT := linker.ld
+
+RAMDISK := $(USRDIR)/$(BINDIR)/ramdisk.bin
+RAMDISK_DIR := $(USRDIR)/$(BINDIR)/ramdisk_dir.bin
 
 # Build config.
 LOG_LEVEL  := trace
@@ -51,10 +55,16 @@ CUR_DEP_FILES := $(shell [ -d $(DEPDIR) ] && find $(DEPDIR) -name '*.d')
 -include $(CUR_DEP_FILES)
 
 # Build targets.
-$(BINDIR)/$(TARGET): $(OBJ_FILES)
+$(BINDIR)/$(TARGET): $(OBJ_FILES) $(RAMDISK) $(RAMDISK_DIR)
 	@mkdir -p $(@D)
 	$(LD) $(LDFLAGS) -o $@ --start-group $(call reverse,$^) $(LIBDIR)/libcore.rlib --end-group
 	@-objdump -d $(BINDIR)/$(TARGET) | ./checkstack.py 2048
+
+$(RAMDISK): 
+	$(MAKE) -C $(USRDIR)
+
+$(RAMDISK_DIR):
+	$(MAKE) -C $(USRDIR) 
 
 # We first check if compilation succeeds before we emit the dep-info because otherwise the 
 # dependency file will be updated even if compilation fails and Make will try to build twice which
@@ -99,6 +109,7 @@ clean:
 	rm -Rf $(DEPDIR)
 	rm -Rf $(DOCDIR)
 	rm -f $(IMGDIR)/boot/$(TARGET)
+	$(MAKE) -C $(USRDIR) clean
 
 # Debug target.
 print-%:

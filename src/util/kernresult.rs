@@ -30,6 +30,7 @@ pub enum KernError {
     DirectoryNotEmpty,
     WrongType,
     FormatError,
+    Unsupported,
 }
 
 pub struct KernErrorEx<E> {

@@ -17,6 +17,22 @@ SECTIONS
     .rodata : {
         *(.rodata*)
     }
+
+    /* ramdisk stuff */ 
+    __ramdisk_start = .;
+    .ramdisk : {
+        KEEP(*(.ramdisk))
+    }
+    __ramdisk_end = .;
+    __ramdisk_size = __ramdisk_end - __ramdisk_start;
+
+    __ramdisk_dir_start = .;
+    .ramdisk_dir : {
+        KEEP(*(.ramdisk_dir))
+    }   
+    __ramdisk_dir_end = .;
+    __ramdisk_dir_size = __ramdisk_dir_end - __ramdisk_dir_start;
+
     __ro_end = .;
 
     /* start a new block (page) for writeable stuff */

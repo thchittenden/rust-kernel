@@ -1,6 +1,6 @@
 #![crate_name="fs"]
 #![crate_type="rlib"]
-#![feature(no_std,core,core_prelude,core_str_ext,const_fn)]
+#![feature(no_std,core,core_prelude,core_str_ext,core_slice_ext,const_fn)]
 #![no_std]
 
 #[macro_use] extern crate core;
@@ -11,6 +11,7 @@ extern crate sync;
 
 pub mod path;
 pub mod vfs;
+pub mod rdfs;
 
 use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc, RcAny};
@@ -19,6 +20,7 @@ use core::any::Any;
 use util::global::Global;
 use collections::string::String;
 use self::vfs::VFS;
+use self::rdfs::RDFS;
 use util::KernResult;
 use util::KernError::WrongType;
 pub use path::Path;
@@ -159,6 +161,10 @@ impl FileCursor {
         &self.curdir
     }
 
+    pub fn mount(&self, node: String, fs: Box<FileSystem>) -> KernResult<()> {
+        self.node.mount(node, fs)
+    }
+
 }
 
 
@@ -176,8 +182,9 @@ pub fn init() {
     let root = VFS::new().unwrap().root_node().unwrap();
     ROOT.init(root);
 
-    // Populate a few initial directories.
+    debug!("initializing ramdisk");
     let cursor = root_cursor();
-    cursor.make_node(String::from_str("dev")).unwrap();
+    let ramdisk = Box::new(RDFS::new().unwrap()).unwrap();
+    cursor.mount(String::from_str("ramdisk"), ramdisk).unwrap();
 }
 
