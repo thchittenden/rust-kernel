@@ -38,6 +38,12 @@ pub fn set_cr3(cr3: usize) {
     unsafe { asm!("mov $0, %cr3" :: "r"(cr3)) }
 }
 
+pub fn get_cr3() -> usize {
+    let mut cr3;
+    unsafe { asm!("mov %cr3, $0" : "=r"(cr3)) };
+    cr3
+}
+
 /// Enables paging.
 pub fn enable_paging() {
     unsafe { 

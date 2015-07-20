@@ -25,6 +25,7 @@ fn addr_to_pde (addr: usize) -> usize {
 
 bitflags! {
     flags PageTableEntry: u32 {
+        const PTE_NONE         = 0x00000000,
         const PTE_PRESENT      = 0x00000001,
         const PTE_WRITABLE     = 0x00000002,
         const PTE_SUPERVISOR   = 0x00000004,
@@ -39,6 +40,7 @@ bitflags! {
 
 bitflags! {
     flags PageDirectoryEntry: u32 {
+        const PDE_NONE         = 0x00000000,
         const PDE_PRESENT      = 0x00000001,
         const PDE_WRITABLE     = 0x00000002,
         const PDE_SUPERVISOR   = 0x00000004,
@@ -322,6 +324,10 @@ impl PageDirectory {
     /// Sets CR3 to the current page directory.
     pub fn activate(&self) {
         asm::set_cr3(self as *const PageDirectory as usize);
+    }
+
+    pub fn is_active(&self) -> bool {
+        asm::get_cr3() == self as *const PageDirectory as usize
     }
 }
 

@@ -63,6 +63,12 @@ pub fn page_align(addr: usize) -> usize {
     align!(addr, PAGE_SIZE)
 }
 
+/// Aligns an address to the next page.
+#[inline]
+pub fn page_align_up(addr: usize) -> usize {
+    align!(addr + PAGE_SIZE - 1, PAGE_SIZE)
+}
+
 /// Returns the number of low order 0 bits in an alignment mask. This is currently used in the LMM
 /// allocator.
 #[inline]

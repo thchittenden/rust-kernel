@@ -18,6 +18,7 @@ extern crate mem;
 extern crate devices;
 extern crate collections;
 extern crate fs;
+extern crate loader;
 
 mod test;
 

@@ -1,8 +1,8 @@
 use core::prelude::*;
-use core::ops::{Index, IndexMut};
+use core::ops::{Index, IndexMut, Range};
 use core::slice;
 use sync::rwlock::{RWLock, ReaderGuard, WriterGuard};
-use util::KernResult;
+use util::{page_align, page_align_up, PAGE_SIZE, KernResult};
 use ::virt::{PageDirectory, PageTable, PageTableEntry, PDE_WRITABLE};
 use ::phys::{FrameReserve, Frame};
 
@@ -47,18 +47,38 @@ impl AddressSpace {
         }
     }
 
+    /// Locks a memory range for reading. 
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the address space is not the currently active address space. This
+    /// would indicate that the index operations would not be validated and could page fault. 
     pub fn lock_range_reader(&self, lo: usize, hi: usize) -> AddressReader {
+        let lo = page_align(lo);
+        let hi = page_align_up(hi);
+        let lock = self.state.lock_reader();
+        assert!(lock.pd.is_active());
         AddressReader {
-            guard: self.state.lock_reader(),
+            guard: lock,
             slice: unsafe { slice::from_raw_parts(lo as *const u8, hi - lo) },
             lo: lo,
             hi: hi,
         }
     }
 
+    /// Locks a memory range for writing.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the address space is not the currently active address space. This
+    /// would indicate that the index operations would not be validated and could page fault. 
     pub fn lock_range_writer(&self, lo: usize, hi: usize) -> AddressWriter {
+        let lo = page_align(lo);
+        let hi = page_align_up(hi);
+        let lock = self.state.lock_writer();
+        assert!(lock.pd.is_active());
         AddressWriter {
-            guard: self.state.lock_writer(),
+            guard: lock,
             slice: unsafe { slice::from_raw_parts_mut(lo as *mut u8, hi - lo) },
             lo: lo,
             hi: hi,
@@ -100,6 +120,15 @@ impl<'a> AddressWriter<'a> {
         Ok(())
     }
 
+    pub fn map_all_unreserved(&mut self, flags: PageTableEntry) -> KernResult<()> {
+        for page in (self.lo..self.hi).step_by(PAGE_SIZE) {
+            if !self.is_mapped(page) {
+                try!(self.map_addr_unreserved(page, flags));
+            }
+        }
+        Ok(())
+    }
+
 }
 
 impl<'a> Index<usize> for AddressReader<'a> {
@@ -120,11 +149,28 @@ impl<'a> Index<usize> for AddressWriter<'a> {
     }
 }
 
+impl<'a> Index<Range<usize>> for AddressWriter<'a> {
+    type Output = [u8];
+    fn index(&self, range: Range<usize>) -> &[u8] {
+        assert!(range.start >= self.lo && range.start < self.hi);
+        assert!(range.end > self.lo && range.end <= self.hi);
+        &self.slice[range.start-self.lo..range.end-self.lo]
+    }
+}
+
 impl<'a> IndexMut<usize> for AddressWriter<'a> {
     fn index_mut(&mut self, addr: usize) -> &mut u8 {
         assert!(self.guard.pd.has_page(addr));
         assert!(addr >= self.lo && addr < self.hi);
         &mut self.slice[addr - self.lo]
+    }
+}
+
+impl<'a> IndexMut<Range<usize>> for AddressWriter<'a> {
+    fn index_mut(&mut self, range: Range<usize>) -> &mut [u8] {
+        assert!(range.start >= self.lo && range.start < self.hi);
+        assert!(range.end > self.lo && range.end <= self.hi);
+        &mut self.slice[range.start-self.lo..range.end-self.lo]
     }
 }
 
