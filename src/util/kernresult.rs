@@ -31,6 +31,7 @@ pub enum KernError {
     WrongType,
     FormatError,
     Unsupported,
+    EndOfFile,
 }
 
 pub struct KernErrorEx<E> {

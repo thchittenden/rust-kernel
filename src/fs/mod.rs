@@ -1,6 +1,6 @@
 #![crate_name="fs"]
 #![crate_type="rlib"]
-#![feature(no_std,core,core_prelude,core_str_ext,core_slice_ext,const_fn)]
+#![feature(no_std,core,core_prelude,core_str_ext,core_slice_ext,core_intrinsics,const_fn)]
 #![no_std]
 
 #[macro_use] extern crate core;
@@ -21,7 +21,7 @@ use util::global::Global;
 use collections::string::String;
 use self::vfs::VFS;
 use self::rdfs::RDFS;
-use util::KernResult;
+use util::{KernResult, KernResultEx};
 use util::KernError::WrongType;
 pub use path::Path;
 logger_init!(Trace);
@@ -69,9 +69,9 @@ pub trait FileSystem {
 
 pub trait File {
     
-    unsafe fn read(&self, into: usize, offset: usize, count: usize) -> usize;
+    fn read(&self, into: &mut [u8], offset: usize, count: usize) -> KernResultEx<(), usize>;
 
-    unsafe fn write(&mut self, from: usize, offset: usize, count: usize) -> usize;
+    fn write(&mut self, from: &[u8], offset: usize, count: usize) -> KernResultEx<(), usize>;
 
 }
 
@@ -182,9 +182,7 @@ pub fn init() {
     let root = VFS::new().unwrap().root_node().unwrap();
     ROOT.init(root);
 
-    debug!("initializing ramdisk");
-    let cursor = root_cursor();
-    let ramdisk = Box::new(RDFS::new().unwrap()).unwrap();
-    cursor.mount(String::from_str("ramdisk"), ramdisk).unwrap();
+    // Initialize the ramdisk.
+    rdfs::init();
 }
 

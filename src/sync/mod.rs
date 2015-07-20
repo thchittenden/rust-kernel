@@ -6,7 +6,6 @@
 #[macro_use] extern crate core;
 extern crate collections;
 extern crate mutex;
-extern crate task;
 extern crate alloc;
 
 pub mod condvar;

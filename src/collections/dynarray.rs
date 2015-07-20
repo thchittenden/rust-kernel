@@ -4,7 +4,7 @@
 //! initialized properly.
 //!
 use core::prelude::*;
-use core::{mem, ptr, marker};
+use core::{mem, ptr, marker, slice};
 use core::ops::{Index, IndexMut};
 use core::intrinsics::drop_in_place;
 use alloc::{allocate_raw, reallocate_raw, deallocate_raw};
@@ -92,6 +92,14 @@ impl<T: Default> DynArray<T> {
             len: self.len,
             _marker: marker::PhantomData
         }
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        unsafe { slice::from_raw_parts(self.raw as *const T, self.len) }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        unsafe { slice::from_raw_parts_mut(self.raw, self.len) }
     }
 
 }

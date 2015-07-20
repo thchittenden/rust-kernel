@@ -13,13 +13,15 @@ use alloc::boxed::Box;
 use alloc::rc::{Rc, HasRc, RcAny};
 use core::prelude::*;
 use core::atomic::AtomicUsize;
+use core::cmp::min;
+use core::intrinsics;
 use collections::hashmap::{HashMap, HasKey, KeyIter};
 use collections::dynarray::DynArray;
 use collections::link::{HasDoubleLink, DoubleLink};
 use collections::string::String;
 use sync::rwlock::{ReaderGuard, WriterGuard, ReaderGuardMap, RWLock};
 use super::{Node, File, FileSystem};
-use util::KernResult;
+use util::{KernResult, KernResultEx, KernErrorEx};
 use util::KernError::*;
 use super::PARENT_DIR;
 logger_init!(Trace);
@@ -349,36 +351,47 @@ impl VFSFile {
 
 impl File for VFSFile {
     
-    unsafe fn read(&self, into: usize, offset: usize, count: usize) -> usize {
-        let into_ptr = into as *mut u8;
-        for i in 0..count {
-            if offset + i >= self.data.len() {
-                return i;
-            } else {
-                *into_ptr.offset(i as isize) = self.data[offset + i];
-            }
+    fn read(&self, into: &mut [u8], offset: usize, count: usize) -> KernResultEx<(), usize> {
+        if offset > self.data.len() {
+            // If the offset is past the end of the file, return EOF.
+            return Err(KernErrorEx { err: EndOfFile, ex: 0 });
         }
-        count
+        let from = &self.data.as_slice()[offset..self.data.len()];
+        let from_size = from.len();
+        let into_size = into.len();
+        let final_count = min(count, min(from_size, into_size));
+        unsafe { intrinsics::copy(from.as_ptr(), into.as_mut_ptr(), final_count) };
+        if count == final_count {
+            Ok(())
+        } else {
+            Err(KernErrorEx { err: EndOfFile, ex: final_count })
+        }
     }
 
-    unsafe fn write(&mut self, from: usize, offset: usize, count: usize) -> usize {
+    fn write(&mut self, from: &[u8], offset: usize, count: usize) -> KernResultEx<(), usize> {
         // Try to expand the file if needed.
         if offset + count > self.data.len() {
             // We can ignore whether this succeeds or not because we will respect data.len()
             // regardless.
             let _ = self.data.resize(offset + count);
         }
-        
-        // Write the data.
-        let from_ptr = from as *const u8;
-        for i in 0..count {
-            if offset + i >= self.data.len() {
-                return i;
-            } else {
-                self.data[offset + i] = *from_ptr.offset(i as isize);
-            }
+
+        // If the offset is still past the end of the file, return in error.
+        if offset > self.data.len() {
+            return Err(KernErrorEx { err: OutOfMemory, ex: 0 });
         }
-        count
+       
+        let len = self.data.len();
+        let into = &mut self.data.as_mut_slice()[offset..len];
+        let into_size = into.len();
+        let from_size = from.len();
+        let final_count = min(count, min(from_size, into_size));
+        unsafe { intrinsics::copy(from.as_ptr(), into.as_mut_ptr(), final_count) }; 
+        if count == final_count {
+            Ok(())
+        } else {
+            Err(KernErrorEx { err: OutOfMemory, ex: final_count })
+        }
     }
 
 }
