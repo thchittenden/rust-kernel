@@ -8,6 +8,7 @@ mod string;
 mod vfs;
 mod hashmap;
 mod slist;
+mod mem;
 
 logger_init!(Trace);
 
@@ -23,6 +24,7 @@ pub fn test_all() {
     hashmap::test();
     vfs::test();
     slist::test();
+    mem::test();
     let free_end = alloc::get_free_space();
 
     // VFS may "leak" bytes so perform it after we check for leaks.

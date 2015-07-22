@@ -55,8 +55,13 @@ SECTIONS
     /* The heap starts after BSS. */
     __heap_start = .;
 
-    /* Kernel memory ends at 16 MB. */
-    . = 16M;
+    /* The heap ends before the last page of kernel memory. This is where the head of the free 
+     * frame list is. */
+    . = 16M - 4K;
     __heap_end = .;
+    __ffl_head = .;
+
+    /* Kernel memory ends at 16MB. */
+    . = 16M;
     __kernel_end = .;
 }

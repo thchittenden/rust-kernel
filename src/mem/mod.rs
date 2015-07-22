@@ -23,7 +23,6 @@ use virt::{PageTable, PageDirectory};
 use virt::{PDE_WRITABLE, PDE_SUPERVISOR, PDE_MAPPED_SIZE, PD_RECMAP_ADDR};
 use virt::{PTE_WRITABLE, PTE_SUPERVISOR, PTE_GLOBAL};
 use util::{page_align, PAGE_SIZE};
-use util::rawbox::RawBox;
 use util::global::Global;
 use util::multiboot::MultibootHeader;
 use util::asm::{enable_paging, enable_global_pages};
@@ -50,6 +49,11 @@ pub fn init(hdr: &MultibootHeader) {
     KPD.activate();
     enable_global_pages();
     enable_paging();
+
+    // TODO this is pretty ugly and unsafe as we have multiple references to the PageDirectory. We
+    // should redo how the phys module interacts with the virt module.
+    let frame = unsafe { Frame::from_addr(KPD.get_addr()) };
+    phys::enable_paging(frame);
 }
 
 fn direct_map_kernel() {

@@ -200,6 +200,12 @@ impl PageTable {
         self.ptes[pte].insert(flags | PTE_PRESENT);
     }
 
+    pub fn unmap_page(&mut self, addr: usize) -> Frame<()> {
+        assert!(self.has_page(addr));
+        let pte = addr_to_pte(addr);
+        self.ptes[pte].remove_page()
+    }
+
     /// Returns whether an address has a mapped frame.
     pub fn has_page(&self, addr: usize) -> bool {
         // Here we are assuming this is the RIGHT page table since we can't 
@@ -245,7 +251,7 @@ impl fmt::Debug for PageTable {
 
 impl PageDirectory {
     
-    /// Tries to allocate a new, cleared page directory from the free frame list.
+    /// Allocates a new page directory and 
     pub fn new(frame: Frame<()>) -> Frame<PageDirectory> {
         frame.emplace(|pd: &mut PageDirectory| {
             unsafe { pd.clear() }; // This is safe because there is nothing mapped in.
@@ -292,6 +298,13 @@ impl PageDirectory {
         assert!(!self.has_page(addr));
         let pde = addr_to_pde(addr);
         self.pdes[pde].borrow_pagetable_mut().map_page(addr, frame, flags)
+    }
+
+    pub fn unmap_page(&mut self, addr: usize) -> Frame<()> {
+        assert!(self.has_pagetable(addr));
+        assert!(self.has_page(addr));
+        let pde = addr_to_pde(addr);
+        self.pdes[pde].borrow_pagetable_mut().unmap_page(addr)
     }
 
     /// Returns whether a specified address has a mapped frame or not.
