@@ -3,7 +3,7 @@ use core::intrinsics::drop_in_place;
 use core::ops::{Deref, DerefMut};
 use core::{mem, fmt};
 use super::FREE_FRAME_LIST;
-use util::{is_page_aligned, PAGE_SIZE};
+use util::{asm, is_page_aligned, PAGE_SIZE};
 logger_init!(Trace);
 
 /// An unallocated frame.
@@ -25,6 +25,7 @@ pub struct Frame<T> {
 }
 
 impl<T> Frame<T> {
+
     /// Creates and initializes a free frame from a unique memory address.
     ///
     /// # Safety
@@ -53,7 +54,22 @@ impl<T> Frame<T> {
         self.ptr as usize
     }   
 
+    /// Casts the frame to a different type. This is primarily useful in a paging environment
+    /// because it will not dereference the frame in any way.
+    ///
+    /// # Safety
+    ///
+    /// This is unsafe because the old value will not be dropped and this may allow access to
+    /// uninitialized memory.
+    pub unsafe fn cast<U>(self) -> Frame<U> {
+        assert!(mem::size_of::<U>() <= PAGE_SIZE);
+        let addr = self.ptr as usize;
+        mem::forget(self);
+        Frame { ptr: addr as *mut U }
+    }
+
     pub unsafe fn allocate_raw<U>(self) -> Frame<U> {
+        assert!(!asm::paging_enabled());
         assert!(mem::size_of::<U>() <= PAGE_SIZE);
         
         // Extract the frame address and drop the old value.
@@ -70,6 +86,7 @@ impl<T> Frame<T> {
     }
 
     pub fn allocate<U>(self, val: U) -> Frame<U> {
+        assert!(!asm::paging_enabled());
         assert!(mem::size_of::<U>() <= PAGE_SIZE);
 
         // Extract the frame address and drop the old value.
@@ -84,6 +101,7 @@ impl<T> Frame<T> {
     }
 
     pub fn emplace<U, F>(self, init: F) -> Frame<U> where F: Fn(&mut U) {
+        assert!(!asm::paging_enabled());
         assert!(mem::size_of::<U>() <= PAGE_SIZE);
 
         // Extract the frame address and drop the old value.
@@ -100,12 +118,14 @@ impl<T> Frame<T> {
 impl<T> Deref for Frame<T> {
     type Target = T;
     fn deref(&self) -> &T {
+        assert!(!asm::paging_enabled());
         unsafe { &*self.ptr }
     }
 }
 
 impl<T> DerefMut for Frame<T> {
     fn deref_mut(&mut self) -> &mut T {
+        assert!(!asm::paging_enabled());
         unsafe { &mut *self.ptr }
     }
 }
@@ -115,7 +135,6 @@ impl<T> Drop for Frame<T> {
         trace!("dropping frame {:?}", self);
         // We know it is safe to construct a frame here because we're dropping the old frame.
         let frame = unsafe { Frame::<()>::from_addr(self.ptr as usize) };
-        let frame = frame.allocate(FreeFrame::new());
         FREE_FRAME_LIST.lock().return_frame(frame);
     }
 }

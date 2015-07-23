@@ -12,7 +12,7 @@ extern crate mem;
 
 pub mod elf;
 
-use mem::addrspace::AddressSpace;
+use mem::virt::AddressSpace;
 use util::KernResult;
 
 pub trait Loadable {

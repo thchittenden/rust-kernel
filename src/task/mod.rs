@@ -16,13 +16,11 @@ extern crate mem;
 /// Thread related structures.
 pub mod thread;
 
-use mem::virt::PageDirectory;
-use util::rawbox::RawBox;
+use mem::virt::AddressSpace;
 
-#[repr(C, packed)]
 pub struct Task {
- 
-    cr3: RawBox<PageDirectory>,
+
+    addrspace: AddressSpace,
 
 }
 

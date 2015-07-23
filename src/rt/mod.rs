@@ -50,44 +50,6 @@ pub unsafe extern fn __assert_fail(msg: *const u8, file: *const u8, line: usize,
 }
 
 #[no_mangle]
-pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
-    for i in 0 .. len as isize {
-        *dst.offset(i) = *src.offset(i);
-    }
-}
-
-#[no_mangle]
-pub unsafe fn memmove(dst: *mut u8, src: *mut u8, len: usize) {
-    if dst < src {
-        for i in 0 .. len as isize {
-            *dst.offset(i) = *src.offset(i);
-        }
-    } else {
-        for i in (0 .. len as isize).rev() {
-            *dst.offset(i) = *src.offset(i);
-        }
-    }
-}
-
-#[no_mangle]
-pub unsafe fn memset(dst: *mut u8, val: isize, len: usize) {
-    for i in 0 .. len as isize {
-        *dst.offset(i) = val as u8;
-    }
-}
-
-#[no_mangle]
-pub unsafe fn memcmp(p1: *const u8, p2: *const u8, len: usize) -> isize {
-    for i in 0 .. len as isize {
-        let diff = (Wrapping(*p1.offset(i)) - Wrapping(*p2.offset(i))).0 as i8;
-        if diff != 0 {
-            return diff as isize;
-        }
-    }
-    return 0;
-}
-
-#[no_mangle]
 pub unsafe fn strlen(s: *const u8) -> isize {
     let mut len = 0;
     while *s.offset(len) != 0 {

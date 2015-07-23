@@ -1,359 +1,400 @@
+pub mod pd;
+pub mod pt;
+pub mod page;
+pub mod constants;
+
 use core::prelude::*;
-use core::{mem, fmt};
-use phys::Frame;
-use util::{asm, is_page_aligned, PAGE_SIZE};
-
-const ENTRY_MASK: usize = 0x3FF;
-const PT_SHIFT: usize = 12;
-const PD_SHIFT: usize = 22;
-pub const PTE_MAPPED_SIZE: usize = (1 << PT_SHIFT);
-pub const PDE_MAPPED_SIZE: usize = (1 << PD_SHIFT);
-
-#[allow(unsigned_negation)]
-// This is intentional. We want it to be the last page directory entry.
-pub const PD_RECMAP_ADDR: usize = -PDE_MAPPED_SIZE;
+use core::ops::{Index, IndexMut, Range};
+use core::slice;
+use sync::rwlock::{RWLock, ReaderGuard, WriterGuard};
+use util::{asm, page_align, page_align_up, PAGE_SIZE, KernResult};
+use self::pd::{PageDirectory, PageDirectoryEntry, PDE_SUPERVISOR, PDE_WRITABLE};
+use self::pt::{PageTable, PageTableEntry, PTE_SUPERVISOR, PTE_WRITABLE, PTE_GLOBAL};
+use self::constants::*;
+use self::page::Page;
+use ::phys::{FrameReserve, Frame};
+logger_init!(Trace);
 
 // Converts an address to its page table index.
 fn addr_to_pte (addr: usize) -> usize {
-    (addr >> PT_SHIFT) & ENTRY_MASK
+    (addr >> PT_SHIFT) & ENTRY_OFF_MASK
 }
 
 // Converts an address to its page directory index.
 fn addr_to_pde (addr: usize) -> usize {
-    (addr >> PD_SHIFT) & ENTRY_MASK
+    (addr >> PD_SHIFT) & ENTRY_OFF_MASK
 }
 
-bitflags! {
-    flags PageTableEntry: u32 {
-        const PTE_NONE         = 0x00000000,
-        const PTE_PRESENT      = 0x00000001,
-        const PTE_WRITABLE     = 0x00000002,
-        const PTE_SUPERVISOR   = 0x00000004,
-        const PTE_WRITETHROUGH = 0x00000008,
-        const PTE_CACHEDISABLE = 0x00000010,
-        const PTE_ACCESSED     = 0x00000020,
-        const PTE_DIRTY        = 0x00000040,
-        const PTE_GLOBAL       = 0x00000100,
-        const PTE_FRAMEMASK    = 0xfffff000,
-    }
+struct AddressSpaceState {
+    resv: FrameReserve,
 }
 
-bitflags! {
-    flags PageDirectoryEntry: u32 {
-        const PDE_NONE         = 0x00000000,
-        const PDE_PRESENT      = 0x00000001,
-        const PDE_WRITABLE     = 0x00000002,
-        const PDE_SUPERVISOR   = 0x00000004,
-        const PDE_WRITETHROUGH = 0x00000008,
-        const PDE_CACHEDISABLE = 0x00000010,
-        const PDE_ACCESSED     = 0x00000020,
-        const PDE_DIRTY        = 0x00000040, //*
-        const PDE_4MBREGION    = 0x00000080,
-        const PDE_GLOBAL       = 0x00000100, //*
-        const PDE_FRAMEMASK    = 0xfffff000,
-    }
-    //* Indicates these flags are only valid for 4MB regions.
+/// An abstract representation of the address space. This enables the kernel to lock portions of
+/// the address space for manipulation. Currently this is done using a RWLock but this should be
+/// made more granular to track individual allocations.
+pub struct AddressSpace {
+    state: RWLock<AddressSpaceState>,
+    cr3: usize,
 }
 
-impl PageTableEntry {
+impl AddressSpaceState {
 
-    /// Sets the frame address of the entry to the given owned frame. 
-    ///
-    /// # Panics
-    ///
-    /// This function panics if this entry already has a mapped frame.
-    pub fn set_page(&mut self, frame: Frame<()>) {
-        assert!(!self.intersects(PTE_FRAMEMASK));
-        let addr = unsafe { frame.into_addr() };
-        self.bits |= addr as u32;
+    /// Gets the page directory.
+    fn get_pd(&self) -> Page<PageDirectory> {
+        unsafe { Page::from_addr(PD_ADDR) }
     }
 
-    /// Removes the page from the page table entry. TODO INVLPG?
-    ///
-    /// # Panics
-    ///
-    /// This funcion panics if this entry does not have a mapped frame.
-    pub fn remove_page(&mut self) -> Frame<()> {
-        let frame_addr = (self.bits & PTE_FRAMEMASK.bits) as usize;
-        assert!(frame_addr != 0);
-        self.clear();
-
-        // We know it's safe to construct this owned pointer because if we know we put a unique
-        // pointer INTO the page table.
-        unsafe { Frame::from_addr(frame_addr) }
-    }
-}
-
-
-impl PageDirectoryEntry {
-    
-    /// Sets the page directory entry to point to the 4MB region pointed to by `frame`.
-    ///
-    /// # Panics
-    ///
-    /// If this page directory entry does not have its 4MB region flag set, this function panics.
-    pub fn set_4mbframe(&mut self, frame: usize) {
-        assert!(self.contains(PDE_4MBREGION));
-        assert!(is_aligned!(frame, PAGE_SIZE*PAGE_SIZE));
-        self.bits |= frame as u32;
+    /// Gets the page table for the given page directory entry.
+    fn get_pt(&self, pde: usize) -> Page<PageTable> {
+        let addr = PT_BASE_ADDR + pde * PTE_MAP_SIZE;
+        unsafe { Page::from_addr(addr) }
     }
 
-    /// Sets the page directory entry to point to the page table `pt`.
-    ///
-    /// # Panics
-    ///
-    /// If the page directory entry has its 4MB region flag set, this function panics.
-    pub fn set_pagetable(&mut self, pt: Frame<PageTable>) {
-        assert!(!self.contains(PDE_4MBREGION));
-        let pt_addr = unsafe { pt.into_addr() as usize };
-        assert!(is_page_aligned(pt_addr));
-        self.bits |= pt_addr as u32;
-    }
-
-    /// Removes a page table from the page directory.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if this entry does not have a mapped page table or its 4MB region flag
-    /// is set.
-    pub fn remove_pagetable(&mut self) -> Frame<PageTable> {
-        assert!(!self.contains(PDE_4MBREGION));
-        let pt_addr: usize = (self.bits & PDE_FRAMEMASK.bits) as usize;
-        assert!(pt_addr != 0);
-        self.clear();
-
-        // We know it's safe to construct this frame because we know we put a page table INTO the
-        // page directory.
-        unsafe { Frame::from_addr(pt_addr) }
-    }
-  
-    /// Borrows a page table from the page directory entry.  
-    ///
-    /// We know this is safe because the entry owns the page table pointer.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if this entry does not have a mapped page table or its 4MB region flag
-    /// is set.
-    pub fn borrow_pagetable(&self) -> &PageTable {
-        assert!(!self.contains(PDE_4MBREGION));
-        let pt_addr: usize = (self.bits & PDE_FRAMEMASK.bits) as usize;
-        assert!(pt_addr != 0);
-        unsafe { &*(pt_addr as *mut PageTable) }
-    }
-    
-    /// Mutably borrows a page table from the page table from the page directory entry.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if this entry does not have a mapped page table or its 4MB region flag
-    /// is set.
-    pub fn borrow_pagetable_mut(&mut self) -> &mut PageTable {
-        assert!(!self.contains(PDE_4MBREGION));
-        let pt_addr: usize = (self.bits & PDE_FRAMEMASK.bits) as usize;
-        assert!(pt_addr != 0);
-        unsafe { &mut*(pt_addr as *mut PageTable) }
-    }
-
-}
-
-pub struct PageTable {
-    ptes: [PageTableEntry; 1024]
-}
-
-pub struct PageDirectory {
-    pdes: [PageDirectoryEntry; 1024] 
-}
-
-impl PageTable {
-
-    /// Constructs a new page table from a frame.
-    pub fn new(frame: Frame<()>) -> Frame<PageTable> {
-        frame.emplace(|pt: &mut PageTable| {
-            unsafe { pt.clear() }; // This is safe because there is nothing mapped in.
-        })
-    }
-
-    /// Clears all entries in the page table.
-    ///
-    /// # Safety
-    ///
-    /// This is unsafe because it will leak any frames that are mapped in.
-    pub unsafe fn clear(&mut self) {
-        for pte in self.ptes.as_mut() {
-            pte.clear()
+    /// Maps a pagetable in from the reserved pool and clears it.
+    fn map_pagetable_reserved(&mut self, addr: usize, flags: PageDirectoryEntry) {
+        // We know it's safe to construct this page table because we clear it immediately after.
+        // We know it's safe to clear the page table because there shouldn't be anything in it.
+        unsafe { 
+            let frame = self.resv.get_frame().cast::<PageTable>();
+            self.get_pd().map_pagetable(addr, frame, flags);
+            self.get_pt(addr_to_pde(addr)).clear();
         }
     }
 
-    /// Maps a frame to the given address. This assumes this is the correct page table for the
-    /// given address since there's no way to verify that the upper bits of the address correspond
-    /// to this page table.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if there is already a frame mapped to the given address.
-    pub fn map_page(&mut self, addr: usize, frame: Frame<()>, flags: PageTableEntry) {
-        assert!(!self.has_page(addr));
-        let pte = addr_to_pte(addr);
-        self.ptes[pte].clear();
-        self.ptes[pte].set_page(frame);
-        self.ptes[pte].insert(flags | PTE_PRESENT);
+    /// Tries to map a pagetable in from the unreserved pool and clears it.
+    fn map_pagetable_unreserved(&mut self, addr: usize, flags: PageDirectoryEntry) -> KernResult<()> {
+        // We know it's safe to construct this page table because we clear it immediately after.
+        // We know it's safe to clear the page table because there shouldn't be anything in it.
+        unsafe { 
+            let frame = try!(self.resv.get_frame_unreserved()).cast::<PageTable>();
+            self.get_pd().map_pagetable(addr, frame, flags);
+            self.get_pt(addr_to_pde(addr)).clear();
+        }
+        Ok(())
     }
 
-    pub fn unmap_page(&mut self, addr: usize) -> Frame<()> {
+    /// Returns whether an address has a corresponding page table or not.
+    fn has_pagetable(&self, addr: usize) -> bool {
+        self.get_pd().has_pagetable(addr)
+    }
+
+    /// Maps a pre-existing page.
+    fn map_page(&mut self, addr: usize, frame: Frame<()>, flags: PageTableEntry) {
+        assert!(self.get_pd().has_pagetable(addr));
+        self.get_pt(addr_to_pde(addr)).map_page(addr, frame, flags);
+    }
+
+    /// Maps a page in from the reserved pool.
+    fn map_page_reserved(&mut self, addr: usize, flags: PageTableEntry) {
+        assert!(self.get_pd().has_pagetable(addr));
+        let frame = self.resv.get_frame();
+        self.get_pt(addr_to_pde(addr)).map_page(addr, frame, flags);
+    }
+
+    /// Tries to map a page in from the unreserved pool.
+    fn map_page_unreserved(&mut self, addr: usize, flags: PageTableEntry) -> KernResult<()> {
+        assert!(self.get_pd().has_pagetable(addr));
+        let frame = try!(self.resv.get_frame_unreserved());
+        self.get_pt(addr_to_pde(addr)).map_page(addr, frame, flags);
+        Ok(())
+    }
+
+    /// Unmaps a page.
+    fn unmap_page(&mut self, addr: usize) -> Frame<()> {
         assert!(self.has_page(addr));
-        let pte = addr_to_pte(addr);
-        self.ptes[pte].remove_page()
+        self.get_pt(addr_to_pde(addr)).unmap_page(addr)
     }
-
-    /// Returns whether an address has a mapped frame.
-    pub fn has_page(&self, addr: usize) -> bool {
-        // Here we are assuming this is the RIGHT page table since we can't 
-        // check that the upper bits of the address correspond to this page table.
-        self.ptes[addr_to_pte(addr)].contains(PTE_PRESENT)
-    }
-
-    /// Removes a set of flags from the page table entry for a given address.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if it would remove flags that would result in unsafe behaviour
-    /// such as the present or frame mask flags.
-    ///
-    /// This function will panic if there is no mapped frame for this address.
-    pub fn remove_flags(&mut self, addr: usize, flags: PageTableEntry) {
-        assert!(self.has_page(addr));
-        assert!(!flags.intersects(PTE_PRESENT | PTE_FRAMEMASK));
-        self.ptes[addr_to_pte(addr)].remove(flags);
-    }
-
-    /// Adds a set of flags from the page table entry for a given address.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if it would add flags that would result in unsafe behaviour
-    /// such as the present or frame mask flags.
-    ///
-    /// This function will panic if there is no mapped frame for this address.
-    pub fn add_flags(&mut self, addr: usize, flags: PageTableEntry) {
-        assert!(self.has_page(addr));
-        assert!(!flags.intersects(PTE_PRESENT | PTE_FRAMEMASK));
-        self.ptes[addr_to_pte(addr)].insert(flags);
-    }
-
-}
-
-impl fmt::Debug for PageTable {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PageTable@{:x}", self as *const PageTable as usize)
-    }
-}
-
-impl PageDirectory {
     
-    /// Allocates a new page directory and 
-    pub fn new(frame: Frame<()>) -> Frame<PageDirectory> {
-        frame.emplace(|pd: &mut PageDirectory| {
-            unsafe { pd.clear() }; // This is safe because there is nothing mapped in.
-        })
+    /// Returns whether an address has a corresponding page or not.
+    fn has_page(&self, addr: usize) -> bool {
+        self.get_pd().has_pagetable(addr) && self.get_pt(addr_to_pde(addr)).has_page(addr)
     }
 
-    /// Removes all mappings and marks all entries as not present.
+}
+
+impl AddressSpace {
+    
+    /// Locks a memory range for reading. 
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// This is unsafe because it will leak any page tables that are currently mapped.
-    pub unsafe fn clear(&mut self) {
-        for pde in self.pdes.as_mut() {
-            pde.clear()
+    /// This function panics if the address space is not the currently active address space. This
+    /// would indicate that the index operations would not be validated and could page fault. 
+    pub fn lock_range_reader(&self, lo: usize, hi: usize) -> AddressReader {
+        let lo = page_align(lo);
+        let hi = page_align_up(hi);
+        let lock = self.state.lock_reader();
+        AddressReader {
+            guard: lock,
+            slice: unsafe { slice::from_raw_parts(lo as *const u8, hi - lo) },
+            lo: lo,
+            hi: hi,
         }
     }
 
-    /// Maps a page table for the specified address with the given flags.
+    pub fn lock_page_reader(&self, addr: usize) -> AddressReader {
+        let addr = page_align(addr);
+        let lock = self.state.lock_reader();
+        AddressReader {
+            guard: lock,
+            slice: unsafe { slice::from_raw_parts(addr as *const u8, PAGE_SIZE) },
+            lo: addr,
+            hi: addr + PAGE_SIZE,
+        }
+    }
+
+    /// Locks a memory range for writing.
     ///
     /// # Panics
     ///
-    /// This function panics if th address already has a page table mapped.
-    pub fn map_pagetable(&mut self, addr: usize, pt: Frame<PageTable>, flags: PageDirectoryEntry) {
-        assert!(!self.has_pagetable(addr));
-        let pde = addr_to_pde(addr);
-        self.pdes[pde].clear();
-        self.pdes[pde].set_pagetable(pt);
-        self.pdes[pde].insert(flags | PDE_PRESENT);
+    /// This function panics if the address space is not the currently active address space. This
+    /// would indicate that the index operations would not be validated and could page fault. 
+    pub fn lock_range_writer(&self, lo: usize, hi: usize) -> AddressWriter {
+        let lo = page_align(lo);
+        let hi = page_align_up(hi);
+        let lock = self.state.lock_writer();
+        AddressWriter {
+            guard: lock,
+            slice: unsafe { slice::from_raw_parts_mut(lo as *mut u8, hi - lo) },
+            lo: lo,
+            hi: hi,
+        }
     }
 
-    /// Returns whether a specified address has a page table or not.
-    pub fn has_pagetable(&self, addr: usize) -> bool {
-        let pde = addr_to_pde(addr);
-        self.pdes[pde].contains(PDE_PRESENT)
+    pub fn lock_page_writer(&self, addr: usize) -> AddressWriter {
+        let addr = page_align(addr);
+        let lock = self.state.lock_writer();
+        AddressWriter {
+            guard: lock,
+            slice: unsafe { slice::from_raw_parts_mut(addr as *mut u8, PAGE_SIZE) },
+            lo: addr,
+            hi: addr + PAGE_SIZE,
+        }
     }
 
-    /// Maps a frame for the specified address with the given flag.
-    ///
-    /// # Panics
-    ///
-    /// This function panics if this page does not have an associated page table.
-    pub fn map_page(&mut self, addr: usize, frame: Frame<()>, flags: PageTableEntry) {
-        assert!(self.has_pagetable(addr));
-        assert!(!self.has_page(addr));
-        let pde = addr_to_pde(addr);
-        self.pdes[pde].borrow_pagetable_mut().map_page(addr, frame, flags)
-    }
-
-    pub fn unmap_page(&mut self, addr: usize) -> Frame<()> {
-        assert!(self.has_pagetable(addr));
-        assert!(self.has_page(addr));
-        let pde = addr_to_pde(addr);
-        self.pdes[pde].borrow_pagetable_mut().unmap_page(addr)
-    }
-
-    /// Returns whether a specified address has a mapped frame or not.
-    pub fn has_page(&self, addr: usize) -> bool {
-        let pde = addr_to_pde(addr);
-        self.pdes[pde].borrow_pagetable().has_page(addr)
-    }
-
-    /// Converts this page directory into a page table. 
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe because the caller needs to ensure they use properly map this page
-    /// table. TODO it may be better to not expose this functionality and instead just provide a
-    /// `map_recursive` function.
-    pub unsafe fn as_pagetable(&mut self) -> Frame<PageTable> {
-        Frame::from_addr(self as *mut PageDirectory as *mut PageTable as usize)
-    }
-
-    /// Removes flags from the page table for the given address.
-    /// 
-    /// # Panics
-    ///
-    /// This function panics if there is no page table for the given address or the flags to be
-    /// removed would result in unsafe behavior (removing the present or frame mask flags).
-    pub fn remove_pte_flags(&mut self, addr: usize, flags: PageTableEntry) {
-        self.pdes[addr_to_pde(addr)].borrow_pagetable_mut().remove_flags(addr, flags);
-    }
-
-    /// Sets CR3 to the current page directory.
+    /// Makes this the 
     pub fn activate(&self) {
-        asm::set_cr3(self as *const PageDirectory as usize);
+        asm::set_cr3(self.cr3);
     }
 
-    pub fn is_active(&self) -> bool {
-        asm::get_cr3() == self as *const PageDirectory as usize
+}
+
+/// Enables the user to read from the range [lo, hi) and guarantees these pages will not be written
+/// to or unmapped.
+pub struct AddressReader<'a> {
+    guard: ReaderGuard<'a, AddressSpaceState>,
+    slice: &'static [u8],
+    lo: usize,
+    hi: usize,
+}
+
+/// Enables the user full control of the range [lo, hi) allowing them to read, write, map, and
+/// unmap pages.
+pub struct AddressWriter<'a> {
+    guard: WriterGuard<'a, AddressSpaceState>,
+    slice: &'static mut [u8],
+    lo: usize,
+    hi: usize,
+}
+
+impl<'a> AddressReader<'a> {
+    pub fn has_page(&self, addr: usize) -> bool {
+        assert!(addr >= self.lo && addr < self.hi);
+        self.guard.get_pd().has_pagetable(addr)
+            && self.guard.get_pt(addr_to_pde(addr)).has_page(addr)
     }
 }
 
-impl fmt::Debug for PageDirectory {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PageDirectory@{:x}", self as *const PageDirectory as usize)
+impl<'a> AddressWriter<'a> {
+    
+    pub fn has_page(&self, addr: usize) -> bool {
+        assert!(addr >= self.lo && addr < self.hi);
+        self.guard.has_page(addr)
+    }
+
+    pub fn map_page(&mut self, addr: usize, frame: Frame<()>, flags: PageTableEntry) {
+        assert!(addr >= self.lo && addr < self.hi);
+        assert!(self.guard.has_pagetable(addr));
+        self.guard.map_page(addr, frame, flags);
+    }
+
+    pub fn map_page_reserved(&mut self, addr: usize, flags: PageTableEntry) {
+        assert!(addr >= self.lo && addr < self.hi);
+        if !self.guard.has_pagetable(addr) {
+            self.guard.map_pagetable_reserved(addr, PDE_WRITABLE);
+        }
+        self.guard.map_page_reserved(addr, flags);
+    }
+
+    pub fn map_page_unreserved(&mut self, addr: usize, flags: PageTableEntry) -> KernResult<()> {
+        assert!(addr >= self.lo && addr < self.hi);
+        if !self.guard.has_pagetable(addr) {
+            try!(self.guard.map_pagetable_unreserved(addr, PDE_WRITABLE));
+        }
+        try!(self.guard.map_page_unreserved(addr, flags));
+        Ok(())
+    }
+
+    pub fn map_all_unreserved(&mut self, flags: PageTableEntry) -> KernResult<()> {
+        for page in (self.lo..self.hi).step_by(PAGE_SIZE) {
+            if !self.has_page(page) {
+                try!(self.map_page_unreserved(page, flags));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn unmap_page(&mut self, addr: usize) -> Frame<()> {
+        assert!(addr >= self.lo && addr < self.hi);
+        self.guard.unmap_page(addr)
+    }   
+
+}
+
+impl<'a> Index<usize> for AddressReader<'a> {
+    type Output = u8;
+    fn index(&self, addr: usize) -> &u8 {
+        assert!(self.guard.has_page(addr));
+        assert!(addr >= self.lo && addr < self.hi);
+        &self.slice[addr - self.lo]
     }
 }
 
-/// Initializes the virtual memory module. This merely asserts that page tables and page
-/// directories were compiled to the correct size for x86 systems.
-pub fn init() {
-    // In light of static_assert being removed, this will have to do.
-    assert!(mem::size_of::<PageTable>() == PAGE_SIZE);
-    assert!(mem::size_of::<PageDirectory>() == PAGE_SIZE);
+impl<'a> Index<usize> for AddressWriter<'a> {
+    type Output = u8;
+    fn index(&self, addr: usize) -> &u8 {
+        assert!(self.guard.has_page(addr));
+        assert!(addr >= self.lo && addr < self.hi);
+        &self.slice[addr - self.lo]
+    }
+}
+
+impl<'a> Index<Range<usize>> for AddressWriter<'a> {
+    type Output = [u8];
+    fn index(&self, range: Range<usize>) -> &[u8] {
+        assert!(range.start >= self.lo && range.start < self.hi);
+        assert!(range.end > self.lo && range.end <= self.hi);
+        &self.slice[range.start-self.lo..range.end-self.lo]
+    }
+}
+
+impl<'a> IndexMut<usize> for AddressWriter<'a> {
+    fn index_mut(&mut self, addr: usize) -> &mut u8 {
+        assert!(self.guard.has_page(addr));
+        assert!(addr >= self.lo && addr < self.hi);
+        &mut self.slice[addr - self.lo]
+    }
+}
+
+impl<'a> IndexMut<Range<usize>> for AddressWriter<'a> {
+    fn index_mut(&mut self, range: Range<usize>) -> &mut [u8] {
+        assert!(range.start >= self.lo && range.start < self.hi);
+        assert!(range.end > self.lo && range.end <= self.hi);
+        &mut self.slice[range.start-self.lo..range.end-self.lo]
+    }
+}
+
+/// Initializes the virtual memory module, enables paging, and returns the initial AddressSpace
+/// that direct maps the kernel.
+pub fn init() -> AddressSpace {
+    
+    // When we enter this function, paging is off so it is safe to manipulate these frames
+    // directly.
+    let resv = FrameReserve::new();
+    resv.reserve(5).expect("unable to allocate initial kernel frames");
+    
+    // Get the frames. We know clearing these is safe because they are brand new.
+    let mut pd = resv.get_frame().emplace(|pd: &mut PageDirectory| unsafe { pd.clear() });
+    let mut pt0 = resv.get_frame().emplace(|pt: &mut PageTable| unsafe { pt.clear() });
+    let mut pt1 = resv.get_frame().emplace(|pt: &mut PageTable| unsafe { pt.clear() });
+    let mut pt2 = resv.get_frame().emplace(|pt: &mut PageTable| unsafe { pt.clear() });
+    let mut pt3 = resv.get_frame().emplace(|pt: &mut PageTable| unsafe { pt.clear() });
+    trace!("pd: {:?}", pd);
+    trace!("pt0: {:?}", pt0);
+    trace!("pt1: {:?}", pt1);
+    trace!("pt2: {:?}", pt2);
+    trace!("pt3: {:?}", pt3);
+
+    // First, map the page directory into itself. This is ok because page directories look a lot
+    // like page tables so by mapping the page directory into itself causes that entry to in the
+    // page directory to map all page tables. See the following link if interested.
+    // http://wiki.osdev.org/Page_Tables#Recursive_mapping
+    let pdflags = PDE_SUPERVISOR | PDE_WRITABLE;
+    let pdpt = unsafe { Frame::<()>::from_addr(pd.get_addr()).allocate_raw::<PageTable>() };
+    pd.map_pagetable(PT_BASE_ADDR, pdpt, pdflags);
+    
+    {   // Perform all mapping operations here.
+        let mut map_page = |addr, frame, flags| {
+            if addr < 1*PDE_MAP_SIZE {
+                pt0.map_page(addr, frame, flags);
+            } else if addr < 2*PDE_MAP_SIZE {
+                pt1.map_page(addr, frame, flags);
+            } else if addr < 3*PDE_MAP_SIZE {
+                pt2.map_page(addr, frame, flags);
+            } else if addr < 4*PDE_MAP_SIZE {
+                pt3.map_page(addr, frame, flags);
+            } else {
+                panic!("kernel exceeded page table allocation");
+            }
+        };
+       
+        // Map in the kernel. We know constructing the frame variable is safe because we only map
+        // the kernel in once. 
+        let ptflags = PTE_SUPERVISOR | PTE_WRITABLE | PTE_GLOBAL;
+        let kernel_start = linker_sym!(__kernel_start);
+        let kernel_end = linker_sym!(__kernel_end);
+        for page in (kernel_start..kernel_end).step_by(PAGE_SIZE) {
+            let frame = unsafe { Frame::from_addr(page) };
+            map_page(page, frame, ptflags);
+        }
+        
+        // Map in video memory. We know constructing the vmem_frame variable is safe because we only map
+        // in video memory once.
+        let vmem: usize = 0xB8000;
+        let vmem_frame = unsafe { Frame::from_addr(vmem) };
+        map_page(vmem, vmem_frame, ptflags);
+    }
+
+    {   // Mark all text/rodata pages as read only.
+        let mut remove_flags = |addr, flags| {
+            if addr < 1*PDE_MAP_SIZE {
+                pt0.remove_flags(addr, flags);
+            } else if addr < 2*PDE_MAP_SIZE {
+                pt1.remove_flags(addr, flags);
+            } else if addr < 3*PDE_MAP_SIZE {
+                pt2.remove_flags(addr, flags);
+            } else if addr < 4*PDE_MAP_SIZE {
+                pt3.remove_flags(addr, flags);
+            } else {
+                panic!("kernel exceeded page table allocation");
+            }
+        };
+        let ro_start = linker_sym!(__ro_start);
+        let ro_end = linker_sym!(__ro_end);
+        for page in (ro_start..ro_end).step_by(PAGE_SIZE) {
+            remove_flags(page, PTE_WRITABLE);
+        }
+    }
+    
+    // Map in the four page tables.
+    pd.map_pagetable(0*PDE_MAP_SIZE, pt0, pdflags);
+    pd.map_pagetable(1*PDE_MAP_SIZE, pt1, pdflags);
+    pd.map_pagetable(2*PDE_MAP_SIZE, pt2, pdflags);
+    pd.map_pagetable(3*PDE_MAP_SIZE, pt3, pdflags);
+
+    // Construct the initial AddressSpace.
+    let addrspace = AddressSpace {
+        state: RWLock::new(AddressSpaceState {
+            resv: FrameReserve::new()
+        }),
+        cr3: unsafe { pd.into_addr() }
+    };
+
+    // Enable paging.
+    addrspace.activate();
+    asm::enable_global_pages();
+    asm::enable_paging();
+
+    // Return the new address space!
+    addrspace
 }

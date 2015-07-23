@@ -44,6 +44,17 @@ pub fn get_cr3() -> usize {
     cr3
 }
 
+pub fn paging_enabled() -> bool {
+    let mut ret: usize;
+    unsafe {
+        asm!("mov %cr0, %eax\n\t
+              and %ecx, %eax\n\t"
+            : "={eax}"(ret)
+            : "{ecx}"(CR0_PG))
+    }
+    ret != 0
+}
+
 /// Enables paging.
 pub fn enable_paging() {
     unsafe { 

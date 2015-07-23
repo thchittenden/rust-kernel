@@ -10,7 +10,9 @@ use mutex::Mutex;
 use util::{PAGE_SIZE, is_page_aligned};
 use util::KernResult;
 use util::KernError::*;
-use virt::{PageDirectory, PTE_SUPERVISOR, PTE_WRITABLE};
+use virt::AddressSpace;
+use virt::pt::{PTE_SUPERVISOR, PTE_WRITABLE};
+use virt::page::Page;
 logger_init!(Trace);
 
 static FREE_FRAME_LIST: Mutex<FreeFrameList> = Mutex::new(FreeFrameList::new());
@@ -25,7 +27,7 @@ struct FreeFrameList {
 
 enum FreeFrameListHead {
     NotPaging(Option<Frame<FreeFrame>>),
-    Paging(Frame<PageDirectory>), // It would be cool to implement this with an AddressWriter.
+    Paging(&'static AddressSpace),
 }
 
 impl FreeFrameListHead {
@@ -37,56 +39,64 @@ impl FreeFrameListHead {
         }
     }
 
-    fn push(&mut self, mut frame: Frame<FreeFrame>) {
+    fn push(&mut self, frame: Frame<()>) {
         match self {
             &mut NotPaging(ref mut head) =>  {
+                let mut frame = frame.allocate(FreeFrame::new());
                 frame.next = head.take();
                 *head = Some(frame);
             }
-            &mut Paging(ref mut pd) => {
+            &mut Paging(addrspace) => {
+                let addr = linker_sym!(__ffl_head);
+                let mut lock = addrspace.lock_page_writer(addr);
                 unsafe {
                     // Unmap the old top of the FFL.
-                    let oldtop = pd.unmap_page(linker_sym!(__ffl_head));
+                    let oldtop = lock.unmap_page(addr);
 
                     // Map in the new frame as the new head.
                     let flags = PTE_SUPERVISOR | PTE_WRITABLE;
-                    pd.map_page(linker_sym!(__ffl_head), frame.unallocate(), flags);
+                    lock.map_page(addr, frame, flags);
 
                     // Create a reference to the new top of the list.
-                    let mut top: Frame<FreeFrame> = Frame::from_addr(linker_sym!(__ffl_head));
+                    let mut top: Page<FreeFrame> = Page::from_addr(addr);
 
                     // Set the head to point to the old top.
-                    top.next = Some(oldtop.allocate_raw::<FreeFrame>()); 
-
-                    // Forget the frame we created so it's not dropped.
-                    mem::forget(top);
+                    top.next = Some(oldtop.cast::<FreeFrame>()); 
                 }
             }
         }
     }
 
-    fn pop(&mut self) -> Option<Frame<FreeFrame>> {
+    fn pop(&mut self) -> Option<Frame<()>> {
         match self {
             &mut NotPaging(ref mut head) => {
                 head.take().map(|mut top| {
                     *head = top.next.take();
-                    top
+                    top.unallocate()
                 })
             }
-            &mut Paging(ref mut pd) => {
+            &mut Paging(addrspace) => {
+                let addr = linker_sym!(__ffl_head);
+                let mut lock = addrspace.lock_page_writer(addr);
                 unsafe { 
-                    if pd.has_page(linker_sym!(__ffl_head)) {
+                    if lock.has_page(addr) {
                         // Create a reference to the top of the list.
-                        let mut top: Frame<FreeFrame> = Frame::from_addr(linker_sym!(__ffl_head));
-                        
-                        // Get the next top of the list and map it in.
-                        if let Some(next) = top.next.take() {
-                            let flags = PTE_SUPERVISOR | PTE_WRITABLE;
-                            pd.map_page(linker_sym!(__ffl_head), next.unallocate(), flags);
-                        }
+                        let mut top: Page<FreeFrame> = Page::from_addr(addr);
                        
-                        // Return the top.
-                        Some(top)
+                        // Get the next top of the list.
+                        let next = top.next.take();
+
+                        // Unmap the old frame.
+                        let oldtop = lock.unmap_page(addr);
+
+                        // If the next frame was not empty, map it in.
+                        if let Some(next) = next {
+                            let flags = PTE_SUPERVISOR | PTE_WRITABLE;
+                            lock.map_page(addr, next.cast::<()>(), flags);
+                        }   
+
+                        // Return the old top frame.
+                        Some(oldtop)
                     } else {
                         None
                     }
@@ -117,14 +127,14 @@ impl FreeFrameList {
             
             // Construct the frame and adds it to the free list. We know this is safe because we
             // assume the user calls initialize once for a given range.
-            let frame = unsafe { Frame::<()>::from_addr(addr) }.allocate(FreeFrame::new());
+            let frame = unsafe { Frame::<()>::from_addr(addr) };
             self.head.push(frame);
             self.max += 1;
             self.count += 1;
         }
     }
 
-    fn paging_enabled(&mut self, pd: Frame<PageDirectory>) {
+    fn enable_paging(&mut self, addrspace: &'static AddressSpace) {
         trace!("enabling phys paging path");
         assert!(!self.head.paging_enabled());
         self.head = match &mut self.head {
@@ -132,11 +142,10 @@ impl FreeFrameList {
                 // Create a new free frame pointing to the old top of the list at the FFL head entry.
                 // Forget it so that it doesn't try to be freed.
                 let addr = linker_sym!(__ffl_head);
-                let frame = unsafe { Frame::<()>::from_addr(addr) }.allocate(FreeFrame { next: top.take() });
-                mem::forget(frame);
+                unsafe { Page::<()>::from_addr(addr) }.allocate(FreeFrame { next: top.take() });
 
                 // Update the head to be in Paging mode.
-                Paging(pd)
+                Paging(addrspace)
             }
             _ => unreachable!()
         };
@@ -159,7 +168,7 @@ impl FreeFrameList {
     fn get_unreserved(&mut self) -> KernResult<Frame<()>> {
         if self.count > self.reserved {
             self.count -= 1;
-            Ok(self.head.pop().unwrap().unallocate())
+            Ok(self.head.pop().unwrap())
         } else {
             Err(OutOfMemory)
         }
@@ -170,10 +179,10 @@ impl FreeFrameList {
         assert!(self.reserved > 0);
         self.count -= 1;
         self.reserved -= 1;
-        self.head.pop().unwrap().unallocate()
+        self.head.pop().unwrap()
     }
 
-    fn return_frame(&mut self, frame: Frame<FreeFrame>) {
+    fn return_frame(&mut self, frame: Frame<()>) {
         self.head.push(frame);
         self.count += 1;
     }
@@ -231,8 +240,8 @@ pub fn add_range(start: usize, end: usize) {
 }
 
 /// Enables paging in the phys module. 
-pub fn enable_paging(pd: Frame<PageDirectory>) {
-    FREE_FRAME_LIST.lock().paging_enabled(pd)
+pub fn enable_paging(addrspace: &'static AddressSpace) {
+    FREE_FRAME_LIST.lock().enable_paging(addrspace)
 }
 
 pub fn init() {

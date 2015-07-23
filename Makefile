@@ -28,7 +28,7 @@ ASFLAGS := -c -m32 -g
 LD := ld
 LDFLAGS := -melf_i386 -T $(LINKERSCRIPT) -static --gc-sections
 CC := gcc
-CCFLAGS := -m32 -c -ggdb -I$(INCDIR) 
+CCFLAGS := -m32 -c -ggdb -std=c99 -I$(INCDIR) 
 RUSTC := rustc
 RUSTCFLAGS := -L$(OBJDIR) -L$(LIBDIR) --target $(TARGETSPEC) -g --cfg 'LOG_DEVICE="$(LOG_DEVICE)"' --cfg 'LOG_LEVEL="$(LOG_LEVEL)"'
 RUSTDOC := rustdoc
